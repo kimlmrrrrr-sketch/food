@@ -139,6 +139,7 @@
           🔴 불 전용 · 🔵 물 전용 발판 · 🔥/💧 <b>팀 전원 발판</b>은 그 팀이 다 올라가야 열려요 · 🧊 얼음은 미끄러워요 · 💎 내 색깔 보석만!<br>
           ⚖️ <b>무게 발판</b>: 여러 명(인원수−1명, 최소 2명)이 동시에 올라가면 문이 <b>5초</b> 열려요 · 🌬️ <b>바람 통로</b>: 켜지면 위로 날아가요 · 🪨 <b>무너지는 다리</b>: 밟으면 곧 무너져요<br>
           ☁️ <b>분출구</b>: 박자 맞춰 지나가요(초록 독가스는 모두 위험, 🌋용암 분수는 불 팀 OK, 💦물대포는 물 팀 OK) · 🟪 <b>움직이는 발판</b> · 🔑 <b>열쇠</b>: 한 팀만 가져올 수 있어요 → 🔒 문으로!<br>
+          🪜 <b>사다리</b>: ↑↓로 오르내리기, Space로 뛰어내리기 · 얇은 나무 발판: 아래서 뚫고 올라가고 ↓로 내려가기 · 🟢 <b>점프대</b>: 밟으면 슈웅! · ⏩ <b>컨베이어</b>: 밟으면 밀려가요 · 🌀 <b>포털</b>: 들어가면 짝 포털로(🔥/💧 표시는 그 팀만) · 🌵 <b>가시</b>(바닥·천장) 조심<br>
           🌑 <b>어둠 모드</b>: 불 팀 주변만 밝아요 · ❤️ <b>팀 목숨</b>(어려움·지옥): 다 떨어지면 처음부터<br>
           ⚠️ 닫히는 문이나 내려오는 엘리베이터에 <b>깔리면 납작!</b> · <b>1~4</b> 이모티콘 · 화면 <b>클릭</b> = ❓ · <b>우클릭</b> = ⚠️ 위험! · <b>꾹 누르고 끌기</b> = 신호 고르기(⚠️위험/➜여기로/✋기다려/🙋도와줘) · 신호는 5초에 3번까지 · <b>Enter</b> 채팅(머리 위 말풍선) · <b>⛶ 크게 보기</b>
         </div>
@@ -166,10 +167,15 @@ const SUPABASE_URL = "https://ejwoofgujgnmeixwispl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqd29vZmd1amdubWVpeHdpc3BsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwNDQ0NzUsImV4cCI6MjEwOTYyMDQ3NX0.P49zFX3Dk6rB0-bGJex94khJER4g517lXAhqruUbTk8";
 
 // 파일을 고칠 때마다 이 번호를 바꿔요. 친구와 번호가 다르면(옛날 파일이 캐시에 남아 있으면) 맵이 서로 달라져서 경고를 띄워요.
-const GAME_VERSION = "v7-1125";
+const GAME_VERSION = "v8-1125";
 const MIN_PLAYERS = 2, MAX_PLAYERS = 6;
 const T = 24, COLS = 40, ROWS = 23, CW = 960, CH = 552;
 const GRAV = 0.55, JUMP = 9.4, MAXV = 2.7, MAXFALL = 10;
+const SPRING_V = 14.5, CLIMB = 2.2;
+let BELT = 1.4;   // 컨베이어 속도
+// 새 타일: | 사다리  - 얇은 발판(아래서 뚫고 올라감, ↓로 내려감)  * 점프대  > < 컨베이어  ^ 바닥 가시  ! 천장 가시
+//          1↔2 포털(누구나)  3↔4 불 전용 포털  5↔6 물 전용 포털
+const PORTAL_PAIR = { 1: "2", 2: "1", 3: "4", 4: "3", 5: "6", 6: "5" }, PORTAL_TEAM = { 1: null, 2: null, 3: "fire", 4: "fire", 5: "water", 6: "water" };
 const PW = 16, PH = 22;
 const COUNTDOWN = 3;
 const EMOTES = ["👇 여기!", "✋ 기다려!", "🏃 고고!", "😂 ㅋㅋㅋ"];
@@ -315,7 +321,8 @@ const DIFFS = [
 ];
 const SHAPES = { up: "⬆️ 오르기", down: "⬇️ 내려가기", side: "➡️ 옆으로 긴 길", split: "🔀 갈라졌다 만나기" };
 function mulberry32(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-const SEG_W = { start: 6, exit: 8, pool: 8, pool2: 10, gate: 12, ice: 16, gems: 10, lane: 20, climbLedge: 8, climbElev: 8, climbFan: 9, drop: 8, stepUp: 4, stepDown: 4, crumble: 12, jets: 13, mover: 12, key: 16 };
+const SEG_W = { start: 6, exit: 8, pool: 8, pool2: 10, gate: 12, ice: 16, gems: 10, lane: 20, climbLedge: 8, climbElev: 8, climbFan: 9, drop: 8, stepUp: 4, stepDown: 4, crumble: 12, jets: 13, mover: 12, key: 16,
+  ladderUp: 8, ladderZig: 12, springUp: 10, springGap: 16, conveyor: 14, spikeHall: 14, portalWall: 15, portalUp: 14, onewayTower: 10 };
 function makeRandomDef(seed, shape, n = 2, diff = 1) {
   const D = DIFFS[diff] || DIFFS[1];
   const rng = mulberry32(seed);
@@ -335,17 +342,34 @@ function makeRandomDef(seed, shape, n = 2, diff = 1) {
   if (n >= 5) challengeTypes.push("gate:weight", "gate:team");
   if (diff >= 1) challengeTypes.push("jets", "key");
   if (diff >= 2) { challengeTypes.push("jets", "mover", "mover", "pool2", "key"); for (const x of ["gems", "pool"]) challengeTypes.splice(challengeTypes.indexOf(x), 1); }
+  challengeTypes.push("springGap", "conveyor", "spikeHall", "portalWall", "springGap", "conveyor", "spikeHall");
+  // 🃏 카드 섞기: 모든 종류가 한 번씩 나오기 전에는 같은 조각이 다시 안 나와요
+  let deck = [], portalUsed = false;
+  const draw = (avoid) => {
+    for (let tries = 0; tries < 60; tries++) {
+      if (!deck.length) { deck = challengeTypes.slice(); for (let k = deck.length - 1; k > 0; k--) { const j = Math.floor(rng() * (k + 1)); [deck[k], deck[j]] = [deck[j], deck[k]]; } }
+      const t = deck.pop();
+      if (avoid.includes(t) || (t.startsWith("portal") && portalUsed)) { deck.unshift(t); continue; }
+      return t;
+    }
+    return "pool";
+  };
+  const recent = [];
+  const climbs = ["climbElev", "climbLedge", "climbFan", "ladderUp", "ladderZig", "springUp", "onewayTower", "portalUp"];
+  let climbDeck = [];
+  const drawClimb = () => { for (let k = 0; k < 20; k++) { if (!climbDeck.length) climbDeck = climbs.slice().sort(() => rng() - 0.5); const t = climbDeck.pop(); if (t === "portalUp" && portalUsed) continue; return t; } return "ladderUp"; };
   for (let i = 0; i < N; i++) {
     let t;
     if (shape === "split" && i % 2 === 0) t = "lane";
-    else { do t = pick(challengeTypes); while (t === lastType || (t === "lane" && i === 0)); }
-    lastType = t;
+    else t = draw(i === 0 ? ["lane", ...recent] : recent);
+    if (t.startsWith("portal")) portalUsed = true;
+    recent.push(t); if (recent.length > 3) recent.shift();
     if (t.startsWith("gate:")) plan.push({ type: "gate", v: t.slice(5) }); else plan.push({ type: t });
     if (diff < 3 ? i % D.cpEvery === 2 && i < N - 1 : i === Math.floor(N / 2)) plan.push({ type: "gate", v: "group" });
     if (i < N - 1) {
-      if (shape === "up") plan.push({ type: pick(["climbElev", "climbLedge", "climbFan"]) });
+      if (shape === "up") { const c = drawClimb(); if (c === "portalUp") portalUsed = true; plan.push({ type: c }); }
       else if (shape === "down") plan.push({ type: "drop" });
-      else if (rng() < 0.3) plan.push({ type: rng() < 0.5 ? "stepUp" : "stepDown" });
+      else if (rng() < 0.45) { const c = pick(["stepUp", "stepDown", "ladderUp", "springUp", "drop", "onewayTower", "ladderZig"]); plan.push({ type: c }); }
     }
   }
   plan.push({ type: "exit" });
@@ -369,8 +393,20 @@ function makeRandomDef(seed, shape, n = 2, diff = 1) {
     if (it.type === "crumble") it.ge = elem();
     if (it.type === "ice") { it.ge = elem(); it.gw = 2; }
     if (it.type === "gems") { it.e1 = elem(); it.e2 = other(it.e1); }
-    if (it.type === "drop") { it.d = ri(4, 7); it.pool = rng() < 0.5 ? elem() : null; it.ge = elem(); }
-    const dF = { climbLedge: -6, climbElev: -6, climbFan: -6, drop: it.d || 0, stepUp: -2, stepDown: 2 }[it.type] || 0;
+    if (it.type === "drop") { it.d = ri(4, 7); it.pool = rng() < 0.5 ? elem() : null; it.ge = elem(); it.spk = diff >= 1 && rng() < 0.5; }
+    if (it.type === "ladderZig") { it.liq = pick(["L", "W", "~"]); it.sp = ri(5, 6); it.ge = elem(); }
+    if (it.type === "ladderUp" || it.type === "springUp" || it.type === "onewayTower" || it.type === "portalUp") { it.ge = elem(); it.goo = diff >= 1; }
+    if (it.type === "springGap") { it.ge = elem(); }
+    if (it.type === "conveyor") { it.dirc = rng() < 0.5 ? ">" : "<"; it.l1 = pick(["L", "W", "~"]); it.l2 = pick(["L", "W", "~"]); it.ge = elem(); }
+    if (it.type === "spikeHall") {
+      // 바닥 가시 위로는 "짧게" 뛰어야 해요 (천장 가시가 머리 위에!)
+      it.fl = []; it.cl = [];
+      for (let c = 3; c <= 11; c += ri(3, 4)) it.fl.push(c);
+      for (const c of it.fl) { if (rng() < 0.75) it.cl.push(c); if (rng() < 0.4 + diff * 0.15) it.cl.push(c + 1); }
+      it.ge = elem();
+    }
+    if (it.type === "portalWall") { it.fx = ri(2, 3); }
+    const dF = { ladderUp: -7, ladderZig: -8, springUp: -6, onewayTower: -8, portalUp: -6, climbLedge: -6, climbElev: -6, climbFan: -6, drop: it.d || 0, stepUp: -2, stepDown: 2 }[it.type] || 0;
     f += dF; it.fOut = f; minF = Math.min(minF, f); maxF = Math.max(maxF, f);
   }
   const span = maxF - minF, H = Math.max(ROWS, span + 14), off = H - 3 - maxF;
@@ -471,8 +507,65 @@ function makeRandomDef(seed, shape, n = 2, diff = 1) {
           ch[it.lk].passX = x0 + 12;
           break;
         }
+        case "ladderUp":   // 🪜 사다리 하나로 쭉
+          ground(x0, x0 + 3, fa); ground(x0 + 4, x0 + 7, fo);
+          F(g, x0 + 3, fo - 1, x0 + 3, fa - 1, "|");
+          if (it.goo) F(g, x0 + 1, fa, x0 + 2, fa, "~");
+          P(g, x0 + 3, fo - 2, gemC(it.ge));   // 보석은 사다리 꼭대기 위 (사다리 칸을 덮지 않게)
+          break;
+        case "ladderZig": {   // 🪜 사다리 → 얇은 발판(가시 점프) → 사다리
+          ground(x0, x0 + w - 1, fa); ground(x0 + 10, x0 + 11, fo);
+          F(g, x0 + 2, fa - 4, x0 + 2, fa - 1, "|");
+          F(g, x0 + 3, fa - 4, x0 + 8, fa - 4, "-");
+          P(g, x0 + it.sp, fa - 5, "^");
+          F(g, x0 + 9, fo - 1, x0 + 9, fa - 5, "|");
+          F(g, x0 + 4, fa, x0 + 7, fa, it.liq);
+          P(g, x0 + 8, fa - 6, gemC(it.ge));
+          break;
+        }
+        case "springUp":   // 🟢 점프대로 절벽 위까지 슈웅
+          ground(x0, x0 + 5, fa); ground(x0 + 6, x0 + 9, fo);
+          P(g, x0 + 3, fa - 1, "*"); F(g, x0 + 4, fa, x0 + 5, fa, "~");
+          P(g, x0 + 5, fa - 8, gemC(it.ge));
+          break;
+        case "springGap":   // 🟢 넓은 독물 위 점프대 기둥
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 4, fa, x0 + 5, fa, "~"); F(g, x0 + 7, fa, x0 + 11, fa, "~");   // 2칸 넘어 점프대 → 5칸 독물을 날아서 건너기
+          P(g, x0 + 6, fa - 1, "*");
+          P(g, x0 + 8, fa - 6, gemC(it.ge));
+          break;
+        case "conveyor":   // ⏩ 컨베이어 위 웅덩이 두 개
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 1, fa, x0 + 12, fa, it.dirc);
+          F(g, x0 + 4, fa, x0 + 5, fa, it.l1); F(g, x0 + 9, fa, x0 + 10, fa, it.l2);
+          P(g, x0 + 7, fa - 2, gemC(it.ge));
+          break;
+        case "spikeHall": {   // 🌵 낮은 천장 + 바닥·천장 가시
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 2, 1, x0 + 11, fa - 5);
+          for (const c of it.fl) P(g, x0 + c, fa - 1, "^");
+          for (const c of it.cl) if (c <= 11) P(g, x0 + c, fa - 4, "!");
+          P(g, x0 + 2 + (it.fl[0] > 3 ? 1 : 0), fa - 1, gemC(it.ge));
+          break;
+        }
+        case "portalWall":   // 🌀 벽 너머로: 🔥 포털은 불 팀만, 💧 포털은 물 팀만
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 7, 1, x0 + 7, fa - 1);
+          P(g, x0 + it.fx, fa - 1, "3"); P(g, x0 + it.fx + 2, fa - 1, "5");
+          P(g, x0 + 10, fa - 1, "4"); P(g, x0 + 12, fa - 1, "6");
+          break;
+        case "portalUp":   // 🌀 포털 타고 절벽 위로
+          ground(x0, x0 + 7, fa); ground(x0 + 8, x0 + 13, fo);
+          P(g, x0 + 5, fa - 1, "1"); P(g, x0 + 11, fo - 1, "2");
+          if (it.goo) F(g, x0 + 2, fa, x0 + 3, fa, "~");
+          P(g, x0 + 9, fo - 2, gemC(it.ge));
+          break;
+        case "onewayTower":   // 얇은 발판을 지그재그로 뚫고 올라가기
+          ground(x0, x0 + w - 1, fa);
+          F(g, x0 + 1, fa - 2, x0 + 3, fa - 2, "-"); F(g, x0 + 5, fa - 4, x0 + 7, fa - 4, "-"); F(g, x0 + 1, fa - 6, x0 + 3, fa - 6, "-");
+          F(g, x0 + 6, fo, x0 + 9, fo);
+          if (it.goo) F(g, x0 + 4, fa, x0 + 7, fa, "~");
+          P(g, x0 + 6, fa - 5, gemC(it.ge));
+          break;
         case "drop":
           ground(x0, x0 + 2, fa); ground(x0 + 3, x0 + 7, fo);
+          if (it.spk) P(g, x0 + 5, fo - 1, "^");
           if (it.pool) F(g, x0 + 6, fo, x0 + 7, fo, liq(it.pool));
           P(g, x0 + 3, fa - 1, gemC(it.ge));
           break;
@@ -512,6 +605,8 @@ function loadLevel(arg) {
   lv.crumbles = []; lv.crumbleAt = {};
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (g[y][x] === "=") { const cr = { x, y, touched: 0, gone: false, goneAt: 0 }; lv.crumbles.push(cr); lv.crumbleAt[x + "," + y] = cr; }
   lv.fans = (def.fans || []).map((f) => ({ ...f, on: false }));
+  lv.portals = {};
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (PORTAL_PAIR[g[y][x]]) lv.portals[g[y][x]] = { x, y };
   lv.jets = (def.jets || []).map((j) => ({ ...j, active: false, warn: false }));
   lv.movers = (def.movers || []).map((m) => ({ ...m, dx: 0, rect: { x: m.x * T, y: m.y * T, w: m.w * T, h: 12 } }));
   lv.keys = (def.keys || []).map((k, i) => ({ ...k, i, holder: null, used: false }));
@@ -523,7 +618,7 @@ function loadLevel(arg) {
   return lv;
 }
 const tileAt = (tx, ty) => (tx < 0 || ty < 0 || tx >= L.W || ty >= L.H ? "#" : L.grid[ty][tx]);
-const isSolidChar = (c) => c === "#" || c === "I" || c === "L" || c === "W" || c === "~";
+const isSolidChar = (c) => c === "#" || c === "I" || c === "L" || c === "W" || c === "~" || c === ">" || c === "<";
 function solidTile(tx, ty) {
   const c = tileAt(tx, ty);
   if (isSolidChar(c)) return true;
@@ -692,9 +787,9 @@ function handle(m) {
       const big = Math.abs(o.rx - m.x) > 80 || Math.abs(o.ry - m.y) > 80 || (o.dead && !m.d);
       // 받은 위치로 바로 순간이동하지 않고, 화면에서 부드럽게 따라가요
       o.offX = big ? 0 : o.rx - m.x; o.offY = big ? 0 : o.ry - m.y;
-      Object.assign(o.b, { x: m.x, y: m.y, vx: m.vx || 0, vy: m.vy || 0, ground: !!m.g, f: m.f || 1, ride: -1, rideM: -1 });
+      Object.assign(o.b, { x: m.x, y: m.y, vx: m.vx || 0, vy: m.vy || 0, ground: !!m.g, f: m.f || 1, ride: -1, rideM: -1, climb: !!m.cl, portIn: true });
       if (big) { o.rx = m.x; o.ry = m.y; }
-      o.x = m.x; o.y = m.y; o.f = m.f; o.dir = m.dir || 0; o.jh = !!m.jh; o.dead = !!m.d; o.ex = !!m.ex; o.g = !!m.g; o.seen = performance.now();
+      o.x = m.x; o.y = m.y; o.f = m.f; o.dir = m.dir || 0; o.vd = m.vd || 0; o.jh = !!m.jh; o.dead = !!m.d; o.ex = !!m.ex; o.g = !!m.g; o.seen = performance.now();
       return;
     }
     case "gem": {
@@ -717,7 +812,7 @@ function handle(m) {
       deaths[m.id] = (deaths[m.id] || 0) + 1;
       const p = parts.find((q) => q.id === m.id);
       burst(m.x, m.y, m.el === "fire" ? "#ff922b" : "#4dabf7", 22);
-      const why = { L: "용암에 빠졌어요 🔥", W: "물에 빠져 꺼졌어요 💦", "~": "독물에 빠졌어요 🤢", fall: "떨어졌어요 😵", crush: "깔려서 납작해졌어요 🫓", "jet~": "독가스를 맞았어요 🤢", jetL: "용암 분수를 맞았어요 🌋", jetW: "물대포를 맞았어요 💦" }[m.why] || "쓰러졌어요";
+      const why = { L: "용암에 빠졌어요 🔥", W: "물에 빠져 꺼졌어요 💦", "~": "독물에 빠졌어요 🤢", fall: "떨어졌어요 😵", crush: "깔려서 납작해졌어요 🫓", "jet~": "독가스를 맞았어요 🤢", spike: "가시에 찔렸어요 🌵", jetL: "용암 분수를 맞았어요 🌋", jetW: "물대포를 맞았어요 💦" }[m.why] || "쓰러졌어요";
       for (const k of L.keys) if (k.holder === m.id) { k.holder = null; pushFeed("🔑 열쇠가 제자리로 돌아갔어요"); }
       if (L.lives > 0 && phase === "play") {
         L.lives--;
@@ -908,7 +1003,7 @@ addEventListener("keydown", (e) => {
   const ei = ["Digit1", "Digit2", "Digit3", "Digit4"].indexOf(e.code);
   if (ei >= 0) { if (!e.repeat && performance.now() - lastEmo > 700 && canPing()) { lastEmo = performance.now(); emit({ t: "emo", id: myId, e: EMOTES[ei] }); } return; }   // 이모티콘도 핑과 같은 제한(5초에 3번)
   if (phase === "play" && (JUMP_KEYS.includes(e.code) || DOWN_KEYS.includes(e.code) || e.code.startsWith("Arrow"))) e.preventDefault();
-  if (!e.repeat && JUMP_KEYS.includes(e.code) && me) me.jbuf = 7;
+  if (!e.repeat && JUMP_KEYS.includes(e.code) && me && !(e.code !== "Space" && L && (me.climb || onLadder(me)))) me.jbuf = 7;   // 사다리에서는 ↑가 오르기, Space가 점프
   if (!e.repeat && DOWN_KEYS.includes(e.code)) tryLever();
   keys[e.code] = true;
 });
@@ -1063,13 +1158,23 @@ function updateChannels() {
 function solidsNear(p) {
   const res = [];
   const x0 = Math.floor(p.x / T) - 1, x1 = Math.floor((p.x + PW) / T) + 1, y0 = Math.floor(p.y / T) - 1, y1 = Math.floor((p.y + PH) / T) + 1;
-  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (solidTile(tx, ty)) res.push({ x: tx * T, y: ty * T, w: T, h: T, tile: tileAt(tx, ty) });
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+    if (solidTile(tx, ty)) { res.push({ x: tx * T, y: ty * T, w: T, h: T, tile: tileAt(tx, ty) }); continue; }
+    const c = tileAt(tx, ty);
+    if (c === "*") res.push({ x: tx * T + 2, y: ty * T + 14, w: T - 4, h: 10, spring: true });
+    else if (c === "-" || (c === "|" && tileAt(tx, ty - 1) !== "|")) res.push({ x: tx * T, y: ty * T, w: T, h: 6, oneway: true });   // 얇은 발판 / 사다리 꼭대기
+  }
   L.elev.forEach((e, i) => res.push({ ...e.rect, elev: i }));
   L.movers.forEach((m, i) => res.push({ ...m.rect, mover: i }));
   return res;
 }
 // 몸 하나를 한 칸(1/60초) 움직이는 물리 — 나도, 친구 화면 예측도 똑같은 규칙을 써요
-function moveBody(p, dir, jumpHeld, local) {
+function onLadder(p) {
+  const tx = Math.floor((p.x + PW / 2) / T);
+  for (let ty = Math.floor((p.y + 2) / T); ty <= Math.floor((p.y + PH - 1) / T); ty++) if (tileAt(tx, ty) === "|") return true;
+  return false;
+}
+function moveBody(p, dir, jumpHeld, local, vd = 0) {
   // 엘리베이터·움직이는 발판 타고 있으면 같이 움직이기
   if (p.ride >= 0 && L.elev[p.ride]) p.y += L.elev[p.ride].d;
   if (p.rideM >= 0 && L.movers[p.rideM]) p.x += L.movers[p.rideM].dx;
@@ -1082,49 +1187,87 @@ function moveBody(p, dir, jumpHeld, local) {
     const core = { x: p.x + 3, y: p.y + 3, w: PW - 6, h: PH - 6 };
     for (const gt of L.gates) if (L.chans[gt.ch].open < 0.5 && ov(core, { x: gt.x * T, y: gt.y * T, w: T, h: T })) return "crush";
   }
-  // 엘리베이터가 몸에 겹치면: 발이 위쪽이면 올라타고, 위에서 내려와 덮치면 깔림
   for (let i = 0; i < L.elev.length; i++) {
     const e = L.elev[i], r = e.rect;
     if (!ov({ x: p.x, y: p.y, w: PW, h: PH }, r)) continue;
     if (p.y + PH - r.y <= 12) { p.y = r.y - PH; p.vy = Math.min(p.vy, 0); p.ride = i; p.ground = true; continue; }
     p.y = r.y + r.h; if (p.vy < 0) p.vy = 0;
-    if (local && solidsNear(p).some((s2) => s2.elev == null && ov({ x: p.x, y: p.y, w: PW, h: PH }, s2))) return "crush";
+    if (local && solidsNear(p).some((s2) => s2.elev == null && !s2.oneway && !s2.spring && ov({ x: p.x, y: p.y, w: PW, h: PH }, s2))) return "crush";
   }
+  // 🪜 사다리: ↑↓ 누르면 매달리기 (Space로 점프해서 내리기)
+  let lad = onLadder(p);
+  if (!lad && vd > 0 && p.ground && tileAt(Math.floor((p.x + PW / 2) / T), Math.floor((p.y + PH + 1) / T)) === "|") { p.y += 3; lad = true; p.climb = true; p.ground = false; }   // 사다리 꼭대기에서 ↓ = 내려가기
+  if (!lad) p.climb = false;
+  else if (vd !== 0 && !(vd > 0 && p.ground && !onLadder({ x: p.x, y: p.y + 4 }))) p.climb = true;
   if (dir) p.f = dir;
-  if (p.ground && p.ice) { p.vx += dir * 0.09; if (!dir) p.vx *= 0.993; p.vx = Math.max(-MAXV * 1.35, Math.min(MAXV * 1.35, p.vx)); }
-  else if (p.ground) p.vx += (dir * MAXV - p.vx) * 0.35;
-  else if (dir) p.vx += (dir * MAXV - p.vx) * 0.12;
-  else p.vx *= 0.97;
-  p.coyote = p.ground ? 6 : Math.max(0, p.coyote - 1);
+  p.coyote = p.ground || p.climb ? 6 : Math.max(0, p.coyote - 1);
   if (p.jbuf > 0) p.jbuf--;
-  if (p.jbuf > 0 && p.coyote > 0) { p.vy = -JUMP; p.jbuf = 0; p.coyote = 0; p.ground = false; p.ride = -1; p.jumps = (p.jumps || 0) + 1; }
-  if (!jumpHeld && p.vy < -3) p.vy += 0.5;   // 짧게 누르면 낮게 점프
-  p.vy = Math.min(MAXFALL, p.vy + GRAV);
+  if (p.climb) {
+    p.vx = dir * 1.3; p.vy = vd * CLIMB;
+    if (p.jbuf > 0) { p.climb = false; p.vy = -JUMP * 0.8; p.jbuf = 0; p.coyote = 0; p.jumps = (p.jumps || 0) + 1; }
+  } else {
+    if (p.ground && p.ice) { p.vx += dir * 0.09; if (!dir) p.vx *= 0.993; p.vx = Math.max(-MAXV * 1.35, Math.min(MAXV * 1.35, p.vx)); }
+    else if (p.ground) p.vx += (dir * MAXV - p.vx) * 0.35;
+    else if (dir) p.vx += (dir * MAXV - p.vx) * 0.12;
+    else p.vx *= 0.97;
+    if (p.jbuf > 0 && p.coyote > 0) { p.vy = -JUMP; p.jbuf = 0; p.coyote = 0; p.ground = false; p.ride = -1; p.jumps = (p.jumps || 0) + 1; }
+    if (!jumpHeld && p.vy < -3 && !(p.springT > 0)) p.vy += 0.5;   // 짧게 누르면 낮게 점프 (점프대는 예외)
+    p.vy = Math.min(MAXFALL, p.vy + GRAV);
+  }
+  if (p.springT > 0) p.springT--;
   for (const fn of L.fans) if (fn.on) {
     const cx = p.x + PW / 2;
-    if (cx >= fn.x * T && cx < (fn.x + fn.w) * T && p.y + PH > fn.top * T && p.y < (fn.y + 1) * T) { p.vy = Math.max(p.vy - 1.3, -5); p.coyote = 0; }
+    if (cx >= fn.x * T && cx < (fn.x + fn.w) * T && p.y + PH > fn.top * T && p.y < (fn.y + 1) * T) { p.vy = Math.max(p.vy - 1.3, -5); p.coyote = 0; p.climb = false; }
   }
+  const prevBottom = p.y + PH;
   p.x += p.vx;
-  for (const s of solidsNear(p)) if (ov({ x: p.x, y: p.y, w: PW, h: PH }, s)) { if (p.vx > 0) p.x = s.x - PW; else if (p.vx < 0) p.x = s.x + s.w; p.vx = 0; }
-  p.y += p.vy; p.ground = false; p.ride = -1; p.rideM = -1;
+  for (const s of solidsNear(p)) if (!s.oneway && ov({ x: p.x, y: p.y, w: PW, h: PH }, s)) { if (p.vx > 0) p.x = s.x - PW; else if (p.vx < 0) p.x = s.x + s.w; p.vx = 0; }
+  p.y += p.vy; const wasGround = p.ground; p.ground = false; p.ride = -1; p.rideM = -1;
+  let sprung = false;
   for (const s of solidsNear(p)) if (ov({ x: p.x, y: p.y, w: PW, h: PH }, s)) {
-    if (p.vy > 0) { p.y = s.y - PH; p.ground = true; if (s.elev != null) p.ride = s.elev; if (s.mover != null) p.rideM = s.mover; }
-    else if (p.vy < 0) p.y = s.y + s.h;
+    if (s.oneway) {   // 위에서 떨어질 때만 밟혀요. ↓를 누르거나 사다리에 매달려 있으면 통과
+      if (p.vy >= 0 && prevBottom <= s.y + 1 && vd <= 0 && !p.climb) { p.y = s.y - PH; p.vy = 0; p.ground = true; }
+      continue;
+    }
+    if (p.vy > 0) {
+      p.y = s.y - PH; p.ground = true;
+      if (s.elev != null) p.ride = s.elev; if (s.mover != null) p.rideM = s.mover;
+      if (s.spring) sprung = true;
+    } else if (p.vy < 0) p.y = s.y + s.h;
     p.vy = 0;
   }
+  if (p.climb && p.ground && vd >= 0) p.climb = false;
+  // 🟢 점프대: 밟으면 하늘 높이!
+  if (sprung) { p.vy = -SPRING_V; p.ground = false; p.springT = 22; p.coyote = 0; p.sprungAt = performance.now(); }
   p.ice = false;
   if (p.ground && p.ride < 0 && p.rideM < 0) {
-    const fy = Math.floor((p.y + PH + 1) / T);
-    for (const tx of [Math.floor((p.x + 3) / T), Math.floor((p.x + PW / 2) / T), Math.floor((p.x + PW - 3) / T)]) if (tileAt(tx, fy) === "I") p.ice = true;
+    const fy = Math.floor((p.y + PH + 1) / T), ctx_ = Math.floor((p.x + PW / 2) / T);
+    for (const tx of [Math.floor((p.x + 3) / T), ctx_, Math.floor((p.x + PW - 3) / T)]) if (tileAt(tx, fy) === "I") p.ice = true;
+    // ⏩ 컨베이어: 밟고 있으면 밀려가요
+    const bc = tileAt(ctx_, fy);
+    if (bc === ">" || bc === "<") {
+      const bx = p.x + (bc === ">" ? BELT : -BELT);
+      if (!solidsNear({ x: bx, y: p.y }).some((s2) => !s2.oneway && ov({ x: bx, y: p.y, w: PW, h: PH }, s2))) p.x = bx;
+    }
   }
+  // 🌀 포털: 들어가면 짝 포털로 순간이동 (색 있는 포털은 그 팀만)
+  let inPortal = null;
+  const cxp = Math.floor((p.x + PW / 2) / T), cyp = Math.floor((p.y + PH / 2) / T);
+  const pc = tileAt(cxp, cyp);
+  if (PORTAL_PAIR[pc] && (!PORTAL_TEAM[pc] || PORTAL_TEAM[pc] === p.team)) inPortal = pc;
+  if (inPortal && !p.portIn) {
+    const dst = L.portals[PORTAL_PAIR[inPortal]];
+    if (dst) { p.x = dst.x * T + (T - PW) / 2; p.y = dst.y * T + T - PH; p.portIn = true; p.climb = false; p.tele = (p.tele || 0) + 1; }
+  } else if (!inPortal) p.portIn = false;
   return null;
 }
 function stepMe() {
   const p = me;
   if (p.dead) { if (--p.dead <= 0) respawn(); return; }
   const dir = (held(["ArrowRight", "KeyD"]) ? 1 : 0) - (held(["ArrowLeft", "KeyA"]) ? 1 : 0);
-  p.dir = dir; p.jh = held(JUMP_KEYS);
-  const hit = moveBody(p, dir, p.jh, true);
+  const vd = (held(["ArrowDown", "KeyS"]) ? 1 : 0) - (held(["ArrowUp", "KeyW"]) ? 1 : 0);
+  p.dir = dir; p.vd = vd; p.jh = held(JUMP_KEYS);
+  const hit = moveBody(p, dir, p.jh, true, vd);
   if (hit) return die(hit);
   // 발밑 확인 (용암/물/독물)
   if (p.ground && p.ride < 0 && p.rideM < 0) {
@@ -1136,6 +1279,13 @@ function stepMe() {
   }
   if (p.y > L.H * T + 40) return die("fall");
   const pr = { x: p.x, y: p.y, w: PW, h: PH };
+  // 가시: 바닥(^)·천장(!) 둘 다 위험
+  { const core = { x: p.x + 3, y: p.y + 2, w: PW - 6, h: PH - 3 };
+    for (let ty = Math.floor(p.y / T); ty <= Math.floor((p.y + PH) / T); ty++) for (let tx = Math.floor(p.x / T); tx <= Math.floor((p.x + PW) / T); tx++) {
+      const c = tileAt(tx, ty);
+      if (c === "^" && ov(core, { x: tx * T + 4, y: ty * T + 13, w: T - 8, h: 11 })) return die("spike");
+      if (c === "!" && ov(core, { x: tx * T + 4, y: ty * T, w: T - 8, h: 11 })) return die("spike");
+    } }
   // 분출구: 내 원소면 괜찮고, 아니면(독가스는 모두) 위험!
   for (const j of L.jets) if (j.active && (j.kind === "~" || (j.kind === "L" && p.team === "water") || (j.kind === "W" && p.team === "fire")) && ov({ x: p.x + 3, y: p.y + 3, w: PW - 6, h: PH - 6 }, { x: j.x * T + 5, y: (j.y - j.h + 1) * T, w: T - 10, h: j.h * T })) return die("jet" + j.kind);
   // 🔑 열쇠 줍기 / 🔒 자물쇠 문 열기
@@ -1153,7 +1303,7 @@ function stepOthers() {
   for (const id in others) {
     const o = others[id], b = o.b;
     if (!b || o.dead || phase !== "play" || countingDown()) { o.rx = lerp(o.rx, o.x, 0.3); o.ry = lerp(o.ry, o.y, 0.3); continue; }
-    if (performance.now() - o.seen < 1500) moveBody(b, o.dir || 0, !!o.jh, false);
+    if (performance.now() - o.seen < 1500) moveBody(b, o.dir || 0, !!o.jh, false, o.vd || 0);
     o.offX *= 0.92; o.offY *= 0.92;
     o.rx = b.x + o.offX; o.ry = b.y + o.offY; o.g = b.ground; o.f = b.f || o.f;
     o.x = b.x; o.y = b.y;
@@ -1175,14 +1325,14 @@ function sendState(force) {
   const now = performance.now(), r = sendRateHz();
   sendTokens = Math.min(2, sendTokens + ((now - (lastTok || now)) / 1000) * r); lastTok = now;   // 토큰 통: 평균 r번/초를 절대 못 넘어요
   const moving = !me.dead && (Math.abs(me.vx) > 0.05 || !me.ground || me.ride >= 0 || me.rideM >= 0);
-  const dk = (me.dir || 0) + "," + (me.jh ? 1 : 0) + "," + (me.jumps || 0) + "," + (me.dead ? 1 : 0) + "," + (me.ex ? 1 : 0);
+  const dk = (me.dir || 0) + "," + (me.vd || 0) + "," + (me.jh ? 1 : 0) + "," + (me.jumps || 0) + "," + (me.tele || 0) + "," + (me.climb ? 1 : 0) + "," + (me.dead ? 1 : 0) + "," + (me.ex ? 1 : 0);
   const changed = dk !== lastDirKey;
   const due = force || changed || (moving && now - lastSend > 1000 / r) || now - lastSend > 3000;
   if (!due) return;
   if (!force && sendTokens < 1) return;
   sendTokens = Math.max(-1, sendTokens - 1);
   lastSend = now; lastDirKey = dk;
-  send({ t: "st", id: myId, x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, vx: Math.round(me.vx * 100) / 100, vy: Math.round(me.vy * 100) / 100, f: me.f, dir: me.dir || 0, jh: me.jh ? 1 : 0, d: me.dead ? 1 : 0, ex: me.ex ? 1 : 0, g: me.ground ? 1 : 0 });
+  send({ t: "st", id: myId, x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, vx: Math.round(me.vx * 100) / 100, vy: Math.round(me.vy * 100) / 100, f: me.f, dir: me.dir || 0, vd: me.vd || 0, cl: me.climb ? 1 : 0, jh: me.jh ? 1 : 0, d: me.dead ? 1 : 0, ex: me.ex ? 1 : 0, g: me.ground ? 1 : 0 });
 }
 function step() {
   steps++;
@@ -1250,7 +1400,7 @@ function buildBg() {
   for (let y = 0; y < BH; y += 16) { g.beginPath(); g.moveTo(0, y); g.lineTo(BW, y); g.stroke(); for (let x = (y / 16) % 2 ? 0 : 16; x < BW; x += 32) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 16); g.stroke(); } }
   for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) {
     const c = L.grid[y][x], px = x * T, py = y * T;
-    if (c === "#" || c === "L" || c === "W" || c === "~") {
+    if (c === "#" || c === "L" || c === "W" || c === "~" || c === ">" || c === "<") {
       const v = hash(x, y) * 14 - 7;
       g.fillStyle = `rgb(${120 + v},${104 + v},${78 + v})`; g.fillRect(px, py, T, T);
       g.fillStyle = "rgba(255,255,255,0.12)"; g.fillRect(px, py, T, 2); g.fillRect(px, py, 2, T);
@@ -1258,6 +1408,16 @@ function buildBg() {
       if (hash(y, x) < 0.25) { g.fillStyle = "rgba(0,0,0,0.12)"; g.fillRect(px + 6, py + 8, 6, 3); }
       const above = tileAt(x, y - 1);
       if (c === "#" && y > 0 && !isSolidChar(above) && hash(x + 7, y) < 0.5) { g.fillStyle = "#6a9a3a"; g.fillRect(px, py, T, 3); }
+    } else if (c === "|") {   // 🪜 사다리
+      g.fillStyle = "#a47148"; g.fillRect(px + 4, py, 3, T); g.fillRect(px + T - 7, py, 3, T);
+      g.fillStyle = "#c8945e"; for (const yy of [4, 12, 20]) g.fillRect(px + 4, py + yy, T - 8, 3);
+    } else if (c === "-") {   // 얇은 발판
+      g.fillStyle = "#b08850"; g.fillRect(px, py, T, 6); g.fillStyle = "#d9b27a"; g.fillRect(px, py, T, 2);
+      g.fillStyle = "rgba(0,0,0,0.3)"; g.fillRect(px + 2, py + 6, 2, 4); g.fillRect(px + T - 4, py + 6, 2, 4);
+    } else if (c === "^" || c === "!") {   // 가시
+      g.fillStyle = "#ced4da"; const up = c === "^";
+      for (let k = 0; k < 3; k++) { const bx = px + 2 + k * 7; g.beginPath(); if (up) { g.moveTo(bx, py + T); g.lineTo(bx + 3.5, py + 12); g.lineTo(bx + 7, py + T); } else { g.moveTo(bx, py); g.lineTo(bx + 3.5, py + 12); g.lineTo(bx + 7, py); } g.fill(); }
+      g.fillStyle = "#868e96"; g.fillRect(px, up ? py + T - 3 : py, T, 3);
     } else if (c === "I") {
       g.fillStyle = "#bfe9ff"; g.fillRect(px, py, T, T);
       g.fillStyle = "#e9f8ff"; g.fillRect(px, py, T, 4);
@@ -1392,6 +1552,30 @@ function drawMechs(t) {
     else { ctx.fillStyle = k.el === "fire" ? "rgba(255,120,60,0.3)" : "rgba(80,160,255,0.3)"; ctx.beginPath(); ctx.arc(kx, ky, 13, 0, 7); ctx.fill(); }
     ctx.font = "18px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("🔑", kx, ky);
   }
+  // ⏩ 컨베이어 / 🟢 점프대 / 🌀 포털 (화면에 보이는 칸만)
+  { const x0 = Math.max(0, Math.floor(camX / T) - 1), y0 = Math.max(0, Math.floor(camY / T) - 1);
+    for (let y = y0; y < Math.min(L.H, y0 + ROWS + 3); y++) for (let x = x0; x < Math.min(L.W, x0 + COLS + 3); x++) {
+      const c = L.grid[y][x], px = x * T, py = y * T;
+      if (c === ">" || c === "<") {
+        ctx.fillStyle = "#495057"; ctx.fillRect(px, py, T, 8); ctx.fillStyle = "#ffd43b";
+        const off = ((t * 40) % 12) * (c === ">" ? 1 : -1);
+        for (let k = -1; k < 3; k++) { const ax = px + ((k * 12 + off) % T + T) % T; ctx.beginPath(); if (c === ">") { ctx.moveTo(ax, py + 1); ctx.lineTo(ax + 4, py + 4); ctx.lineTo(ax, py + 7); } else { ctx.moveTo(ax + 4, py + 1); ctx.lineTo(ax, py + 4); ctx.lineTo(ax + 4, py + 7); } ctx.fill(); }
+      } else if (c === "*") {
+        const sq = 0;
+        ctx.fillStyle = "#2b8a3e"; ctx.fillRect(px + 3, py + 20, T - 6, 4);
+        ctx.strokeStyle = "#adb5bd"; ctx.lineWidth = 2; ctx.beginPath(); for (let k = 0; k < 4; k++) { ctx.lineTo(px + (k % 2 ? 7 : T - 7), py + 19 - k * 1.5); } ctx.stroke();
+        ctx.fillStyle = "#51cf66"; roundRect(ctx, px + 2, py + 13 + sq, T - 4, 5, 2); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("▲", px + T / 2, py + 9 + Math.sin(t * 6) * 1.5);
+      } else if (PORTAL_PAIR[c]) {
+        const team = PORTAL_TEAM[c], col = team === "fire" ? ["#ff6b2c", "#ffd8a8"] : team === "water" ? ["#2f8fff", "#a5d8ff"] : ["#9775fa", "#e5dbff"];
+        const cx = px + T / 2, cy = py + T / 2 - 4;
+        ctx.fillStyle = col[0] + "55"; ctx.beginPath(); ctx.ellipse(cx, cy, 13, 17, 0, 0, 7); ctx.fill();
+        ctx.strokeStyle = col[0]; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(cx, cy, 11, 15, 0, 0, 7); ctx.stroke();
+        ctx.strokeStyle = col[1]; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(cx, cy, 6, 9, t * 3, 0, 4.5); ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(team === "fire" ? "🔥" : team === "water" ? "💧" : (+c % 2 ? "IN" : "OUT"), cx, py - 6);
+      }
+    } }
   // 출구 문
   for (const d of L.doors) {
     const px = d.x * T - 6, py = d.y * T - T - 6, w = T + 12, h = 2 * T + 6;

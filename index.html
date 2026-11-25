@@ -103,7 +103,7 @@
 <section id="game" class="hidden">
   <div id="verWarn" class="hidden" style="background:#ffe3e3;color:#c92a2a;border:2px solid #ff8787;border-radius:14px;padding:10px 16px;margin-bottom:8px;font-size:15px;line-height:1.6"></div>
   <div class="topbar card">
-    <div><span class="roomchip">방 <span id="roomCode"></span></span><button id="copyBtn" class="copy">🔗 초대 링크 복사</button></div>
+    <div><span class="roomchip">방 <span id="roomCode"></span></span><button id="copyBtn" class="copy">🔗 초대 링크 복사</button> <span id="connTxt" style="font-size:13px;font-weight:700;color:#2b8a3e">🟢 연결됨</span></div>
     <div id="status"></div>
     <div><button id="fsBtn">⛶ 크게 보기</button> <button id="restartBtn" class="hidden">🔄 스테이지 처음부터</button></div>
   </div>
@@ -127,6 +127,7 @@
         </div>
         <div class="lobbyrow lvlpick" id="lvlPick"><span style="font-weight:800">스테이지:</span></div>
         <div class="lobbyrow lvlpick hidden" id="shapePick"><span style="font-weight:800">🎲 신전 모양:</span></div>
+        <div class="lobbyrow lvlpick" id="diffPick"><span style="font-weight:800">난이도:</span></div>
         <div class="lobbyrow">
           <span id="hostNote" class="hostnote grow"></span>
           <button id="startBtn" class="green">▶ 탈출 시작!</button>
@@ -137,7 +138,9 @@
           🟡 발판은 누가 밟고 있는 동안만 문이 열려요 · 🟣 <b>전원 집합 발판</b>은 모두가 올라가야 열려요(체크포인트!)<br>
           🔴 불 전용 · 🔵 물 전용 발판 · 🔥/💧 <b>팀 전원 발판</b>은 그 팀이 다 올라가야 열려요 · 🧊 얼음은 미끄러워요 · 💎 내 색깔 보석만!<br>
           ⚖️ <b>무게 발판</b>: 여러 명(인원수−1명, 최소 2명)이 동시에 올라가면 문이 <b>5초</b> 열려요 · 🌬️ <b>바람 통로</b>: 켜지면 위로 날아가요 · 🪨 <b>무너지는 다리</b>: 밟으면 곧 무너져요<br>
-          ⚠️ 닫히는 문이나 내려오는 엘리베이터에 <b>깔리면 납작!</b> · <b>1~4</b> 신호 · 화면 <b>클릭</b> = ❓ 찍기 · <b>Enter</b> 채팅(머리 위 말풍선) · <b>⛶ 크게 보기</b>
+          ☁️ <b>분출구</b>: 박자 맞춰 지나가요(초록 독가스는 모두 위험, 🌋용암 분수는 불 팀 OK, 💦물대포는 물 팀 OK) · 🟪 <b>움직이는 발판</b> · 🔑 <b>열쇠</b>: 한 팀만 가져올 수 있어요 → 🔒 문으로!<br>
+          🌑 <b>어둠 모드</b>: 불 팀 주변만 밝아요 · ❤️ <b>팀 목숨</b>(어려움·지옥): 다 떨어지면 처음부터<br>
+          ⚠️ 닫히는 문이나 내려오는 엘리베이터에 <b>깔리면 납작!</b> · <b>1~4</b> 이모티콘 · 화면 <b>클릭</b> = ❓ · <b>우클릭</b> = ⚠️ 위험! · <b>꾹 누르고 끌기</b> = 신호 고르기(⚠️위험/➜여기로/✋기다려/🙋도와줘) · 신호는 5초에 3번까지 · <b>Enter</b> 채팅(머리 위 말풍선) · <b>⛶ 크게 보기</b>
         </div>
       </div>
     </div>
@@ -163,7 +166,7 @@ const SUPABASE_URL = "https://ejwoofgujgnmeixwispl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqd29vZmd1amdubWVpeHdpc3BsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwNDQ0NzUsImV4cCI6MjEwOTYyMDQ3NX0.P49zFX3Dk6rB0-bGJex94khJER4g517lXAhqruUbTk8";
 
 // 파일을 고칠 때마다 이 번호를 바꿔요. 친구와 번호가 다르면(옛날 파일이 캐시에 남아 있으면) 맵이 서로 달라져서 경고를 띄워요.
-const GAME_VERSION = "v4-1125";
+const GAME_VERSION = "v7-1125";
 const MIN_PLAYERS = 2, MAX_PLAYERS = 6;
 const T = 24, COLS = 40, ROWS = 23, CW = 960, CH = 552;
 const GRAV = 0.55, JUMP = 9.4, MAXV = 2.7, MAXFALL = 10;
@@ -303,15 +306,23 @@ const LEVELS = [
 // "레고 조각" 방식: 직접 설계한 방 조각을 씨앗 번호(seed)로 골라 이어 붙이고,
 // 조각 안의 "빈칸"(문 여는 방법·위험물 종류·불길/물길 방향·보석 위치)도 랜덤으로 채워요.
 // 씨앗 번호가 같으면 누구 컴퓨터에서든 똑같은 맵이 나와요.
+// 난이도: 웅덩이 폭·무게문 시간·다리 속도·분출구 시간·체크포인트 간격·팀 목숨
+const DIFFS = [
+  { name: "😊 쉬움", pool: [2, 2], wTime: 5, crDelay: 450, jetOn: 0.8, mvPeriod: 5.5, cpEvery: 4, lives: 0 },
+  { name: "🙂 보통", pool: [2, 3], wTime: 4, crDelay: 380, jetOn: 1.0, mvPeriod: 4.8, cpEvery: 4, lives: 0 },
+  { name: "😈 어려움", pool: [3, 3], wTime: 3.2, crDelay: 300, jetOn: 1.25, mvPeriod: 4.0, cpEvery: 6, lives: (n) => 4 + 2 * n },
+  { name: "💀 지옥", pool: [3, 3], wTime: 2.6, crDelay: 240, jetOn: 1.45, mvPeriod: 3.4, cpEvery: 99, lives: (n) => 2 + n },
+];
 const SHAPES = { up: "⬆️ 오르기", down: "⬇️ 내려가기", side: "➡️ 옆으로 긴 길", split: "🔀 갈라졌다 만나기" };
 function mulberry32(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-const SEG_W = { start: 6, exit: 8, pool: 8, pool2: 10, gate: 12, ice: 16, gems: 10, lane: 20, climbLedge: 8, climbElev: 8, climbFan: 9, drop: 8, stepUp: 4, stepDown: 4, crumble: 12 };
-function makeRandomDef(seed, shape, n = 2) {
+const SEG_W = { start: 6, exit: 8, pool: 8, pool2: 10, gate: 12, ice: 16, gems: 10, lane: 20, climbLedge: 8, climbElev: 8, climbFan: 9, drop: 8, stepUp: 4, stepDown: 4, crumble: 12, jets: 13, mover: 12, key: 16 };
+function makeRandomDef(seed, shape, n = 2, diff = 1) {
+  const D = DIFFS[diff] || DIFFS[1];
   const rng = mulberry32(seed);
   const ri = (a, b) => a + Math.floor(rng() * (b - a + 1)), pick = (arr) => arr[Math.floor(rng() * arr.length)];
   const other = (e) => (e === "fire" ? "water" : "fire"), liq = (e) => (e === "fire" ? "L" : "W"), gemC = (e) => (e === "fire" ? "r" : "b");
   const elem = () => (rng() < 0.5 ? "fire" : "water");
-  const chPool = "acdefghjkmnopqtuvxyz".split(""), ch = {};
+  const chPool = "acdefghjkmnopqtuvxyzαβγδεζηθκμνξπρστυφχψω".split(""), ch = {};
   const newCh = (spec) => { const k = chPool.shift(); ch[k] = spec; return k; };
 
   // ---- 1) 설계도 만들기 ----
@@ -319,16 +330,18 @@ function makeRandomDef(seed, shape, n = 2) {
   // 사람이 많을수록 신전이 길어지고, 인원이 필요한 장치(⚖️ 무게 발판·팀 전원 발판·무너지는 다리)가 더 자주 나와요
   const N = (shape === "side" ? 5 : 4) + n;
   let lastType = "";
-  const challengeTypes = ["pool", "pool2", "gate:pair", "gate:elem", "gate:lever", "ice", "gems", "lane", "crumble", "gate:weight", "gate:weight"];
+  const challengeTypes = ["pool", "pool2", "gate:pair", "gate:elem", "gate:lever", "ice", "gems", "lane", "crumble", "gate:weight", "gate:weight", "jets", "mover", "key"];
   if (n >= 3) challengeTypes.push("gate:team", "gate:weight", "crumble");
   if (n >= 5) challengeTypes.push("gate:weight", "gate:team");
+  if (diff >= 1) challengeTypes.push("jets", "key");
+  if (diff >= 2) { challengeTypes.push("jets", "mover", "mover", "pool2", "key"); for (const x of ["gems", "pool"]) challengeTypes.splice(challengeTypes.indexOf(x), 1); }
   for (let i = 0; i < N; i++) {
     let t;
     if (shape === "split" && i % 2 === 0) t = "lane";
     else { do t = pick(challengeTypes); while (t === lastType || (t === "lane" && i === 0)); }
     lastType = t;
     if (t.startsWith("gate:")) plan.push({ type: "gate", v: t.slice(5) }); else plan.push({ type: t });
-    if (i % 4 === 2 && i < N - 1) plan.push({ type: "gate", v: "group" });
+    if (diff < 3 ? i % D.cpEvery === 2 && i < N - 1 : i === Math.floor(N / 2)) plan.push({ type: "gate", v: "group" });
     if (i < N - 1) {
       if (shape === "up") plan.push({ type: pick(["climbElev", "climbLedge", "climbFan"]) });
       else if (shape === "down") plan.push({ type: "drop" });
@@ -341,8 +354,11 @@ function makeRandomDef(seed, shape, n = 2) {
   let f = 0, minF = 0, maxF = 0;
   for (const it of plan) {
     it.w = SEG_W[it.type]; it.f = f;
-    if (it.type === "pool") { it.liq = pick(["L", "W", "~"]); it.ge = elem(); }
-    if (it.type === "pool2") { it.a = elem(); }
+    if (it.type === "pool") { it.liq = pick(["L", "W", "~"]); it.ge = elem(); it.pw = ri(D.pool[0], D.pool[1]); }
+    if (it.type === "pool2") { it.a = elem(); it.p1 = ri(D.pool[0], D.pool[1]); it.p2 = 2; }
+    if (it.type === "jets") { it.kinds = [0, 1, 2].map(() => (rng() < 0.4 + diff * 0.1 ? "~" : pick(["L", "W"]))); it.ph = rng() * 3; it.ge = elem(); }
+    if (it.type === "mover") { it.ph = rng() * 5; it.ge = elem(); }
+    if (it.type === "key") { it.e = elem(); it.lk = newCh({ t: "lock" }); }
     if (it.type === "gate") {
       it.gk = newCh(it.v === "group" ? { t: "group" } : it.v === "team" ? { t: "group", only: (it.ea = elem()) } : it.v === "weight" ? { t: "weight" } : it.v === "lever" ? { t: "lever" } : it.v === "elem" ? { t: "plate", only: (it.ea = elem()) } : { t: "plate" });
       if (it.v === "elem") it.gk2 = newCh({ t: "plate", only: other(it.ea), link: it.gk });
@@ -351,7 +367,7 @@ function makeRandomDef(seed, shape, n = 2) {
     if (it.type === "lane") { it.a = elem(); it.cu = newCh({ t: "plate", only: other(it.a) }); it.cv = newCh({ t: "plate", only: it.a }); }
     if (it.type === "climbElev" || it.type === "climbFan") it.ek = newCh({ t: "plate" });
     if (it.type === "crumble") it.ge = elem();
-    if (it.type === "ice") it.ge = elem();
+    if (it.type === "ice") { it.ge = elem(); it.gw = 2; }
     if (it.type === "gems") { it.e1 = elem(); it.e2 = other(it.e1); }
     if (it.type === "drop") { it.d = ri(4, 7); it.pool = rng() < 0.5 ? elem() : null; it.ge = elem(); }
     const dF = { climbLedge: -6, climbElev: -6, climbFan: -6, drop: it.d || 0, stepUp: -2, stepDown: 2 }[it.type] || 0;
@@ -361,14 +377,14 @@ function makeRandomDef(seed, shape, n = 2) {
   const W = 2 + plan.reduce((a, it) => a + it.w, 0);
   const nSeg = plan.length - 2;
   const def = {
-    random: true, seed, shape, n, W, H, ch, elev: [], fans: [], par: 30 + nSeg * 22,
+    random: true, seed, shape, n, diff, W, H, ch, elev: [], fans: [], jets: [], movers: [], keys: [], par: 30 + nSeg * 22,
     name: `🎲 랜덤 신전 · ${SHAPES[shape]} #${seed % 10000}`,
     tip: shape === "split" ? "불 길·물 길로 계속 갈라져요! 서로 상대 팀 문을 열어 줘요." : shape === "up" ? "위로 위로! 엘리베이터는 아래·위 발판으로 움직여요." : shape === "down" ? "아래로 뛰어내리며 지하 출구까지! 떨어진 곳 웅덩이 조심." : "옆으로 긴 신전! 화면 끝 화살표로 친구 위치를 확인해요.",
   };
 
   // ---- 3) 조각 붙이기 ----
   def.build = (g) => {
-    def.elev = []; def.fans = [];
+    def.elev = []; def.fans = []; def.jets = []; def.movers = []; def.keys = [];
     const ground = (x1, x2, fl, c = "#") => { F(g, x1, fl, x2, fl, c); if (fl + 1 <= H - 2) F(g, x1, fl + 1, x2, H - 2); };
     let x0 = 1;
     for (const it of plan) {
@@ -378,12 +394,12 @@ function makeRandomDef(seed, shape, n = 2) {
         case "start": ground(x0, x0 + w - 1, fa); for (let k = 1; k <= 3; k++) P(g, x0 + k, fa - 1, "S"); break;
         case "exit": ground(x0, x0 + w - 1, fa); P(g, x0 + 3, fa - 1, "R"); P(g, x0 + 5, fa - 1, "B"); break;
         case "pool":
-          ground(x0, x0 + w - 1, fa); F(g, x0 + 3, fa, x0 + 4, fa, it.liq);
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 3, fa, x0 + 2 + it.pw, fa, it.liq);
           if (it.liq === "~") P(g, x0 + 4, fa - 3, gemC(it.ge)); else P(g, x0 + 3, fa - 1, it.liq === "L" ? "r" : "b");
           break;
         case "pool2":
-          ground(x0, x0 + w - 1, fa); F(g, x0 + 3, fa, x0 + 4, fa, liq(it.a)); F(g, x0 + 5, fa, x0 + 6, fa, liq(other(it.a)));
-          P(g, x0 + 3, fa - 1, gemC(it.a)); P(g, x0 + 6, fa - 1, gemC(other(it.a)));
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 3, fa, x0 + 2 + it.p1, fa, liq(it.a)); F(g, x0 + 3 + it.p1, fa, x0 + 2 + it.p1 + it.p2, fa, liq(other(it.a)));
+          P(g, x0 + 3, fa - 1, gemC(it.a)); P(g, x0 + 2 + it.p1 + it.p2, fa - 1, gemC(other(it.a)));
           break;
         case "gate": {
           ground(x0, x0 + w - 1, fa);
@@ -397,7 +413,7 @@ function makeRandomDef(seed, shape, n = 2) {
           break;
         }
         case "ice":
-          ground(x0, x0 + w - 1, fa); F(g, x0 + 2, fa, x0 + 9, fa, "I"); F(g, x0 + 12, fa, x0 + 13, fa, "~");   // 얼음 → 돌 2칸(멈춤) → 독물 → 돌
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 2, fa, x0 + 9, fa, "I"); F(g, x0 + 12, fa, x0 + 11 + it.gw, fa, "~");   // 얼음 → 돌 2칸(멈춤) → 독물 → 돌
           P(g, x0 + 4, fa - 1, gemC(it.ge)); P(g, x0 + 7, fa - 1, gemC(other(it.ge)));
           break;
         case "gems":
@@ -436,6 +452,25 @@ function makeRandomDef(seed, shape, n = 2) {
           ground(x0, x0 + w - 1, fa); F(g, x0 + 3, fa, x0 + 8, fa, "="); F(g, x0 + 3, fa + 1, x0 + 8, fa + 1, "~");
           P(g, x0 + 6, fa - 3, gemC(it.ge));
           break;
+        case "jets":   // 독가스·용암·물 분출구 3개 — 시간에 맞춰 뿜어요 (모두 같은 박자)
+          ground(x0, x0 + w - 1, fa);
+          [3, 6, 9].forEach((dx, k) => def.jets.push({ x: x0 + dx, y: fa - 1, h: 4, kind: it.kinds[k], period: 2.6, on: D.jetOn, phase: it.ph + k * 0.75 }));
+          P(g, x0 + 6, fa - 2, gemC(it.ge));
+          break;
+        case "mover":  // 독물 위를 왔다 갔다 하는 발판
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 3, fa, x0 + 9, fa, "~");      // 독물 7칸, 발판은 가운데에서 양옆 2칸씩 왕복
+          def.movers.push({ x: x0 + 5, y: fa - 1, w: 3, amp: 2, period: D.mvPeriod, phase: it.ph });
+          P(g, x0 + 6, fa - 3, gemC(it.ge));
+          break;
+        case "key": {  // 🔑 한 팀만 가져올 수 있는 열쇠 → 🔒 문을 열어요
+          ground(x0, x0 + w - 1, fa); P(g, x0 + 2, fa - 1, "#");
+          F(g, x0 + 3, fa - 3, x0 + 9, fa - 3); F(g, x0 + 4, fa - 3, x0 + 7, fa - 3, liq(it.e));
+          P(g, x0 + 8, fa - 4, gemC(it.e));
+          def.keys.push({ x: x0 + 9, y: fa - 4, ch: it.lk, el: it.e });
+          F(g, x0 + 12, 1, x0 + 12, fa - 5); F(g, x0 + 12, fa - 4, x0 + 12, fa - 1, it.lk.toUpperCase());
+          ch[it.lk].passX = x0 + 12;
+          break;
+        }
         case "drop":
           ground(x0, x0 + 2, fa); ground(x0 + 3, x0 + 7, fo);
           if (it.pool) F(g, x0 + 6, fo, x0 + 7, fo, liq(it.pool));
@@ -465,18 +500,22 @@ function loadLevel(arg) {
   const def = typeof arg === "object" ? arg : LEVELS[arg], W = def.W || COLS, H = def.H || ROWS, g = mkGrid(W, H); def.build(g);
   const idx = def.random ? "R" : arg;
   const lv = { idx, def, W, H, grid: g, plates: [], gates: [], gems: [], doors: [], spawns: [], levers: [], elev: [], chans: {} };
-  for (const k in def.ch) lv.chans[k] = { ...def.ch[k], k, passed: false, passSent: false, timerEnd: 0, who: new Set(), color: def.ch[k].t === "weight" ? "#fab005" : def.ch[k].t === "group" ? (def.ch[k].only === "fire" ? "#ff6b6b" : def.ch[k].only === "water" ? "#4dabf7" : "#b197fc") : def.ch[k].only === "fire" ? "#ff6b6b" : def.ch[k].only === "water" ? "#4dabf7" : CH_COLORS[Object.keys(def.ch).indexOf(k) % CH_COLORS.length], on: false, lever: false, latched: false, open: 0, count: 0 };
+  for (const k in def.ch) lv.chans[k] = { ...def.ch[k], k, passed: false, passSent: false, timerEnd: 0, who: new Set(), color: def.ch[k].t === "lock" ? "#ffd43b" : def.ch[k].t === "weight" ? "#fab005" : def.ch[k].t === "group" ? (def.ch[k].only === "fire" ? "#ff6b6b" : def.ch[k].only === "water" ? "#4dabf7" : "#b197fc") : def.ch[k].only === "fire" ? "#ff6b6b" : def.ch[k].only === "water" ? "#4dabf7" : CH_COLORS[Object.keys(def.ch).indexOf(k) % CH_COLORS.length], on: false, lever: false, latched: false, open: 0, count: 0 };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const c = g[y][x];
     if (c === "S") { lv.spawns.push({ x, y }); g[y][x] = "."; }
     else if (c === "r" || c === "b") { lv.gems.push({ i: lv.gems.length, x, y, el: c === "r" ? "fire" : "water" }); g[y][x] = "."; }
     else if (c === "R" || c === "B") { lv.doors.push({ x, y, el: c === "R" ? "fire" : "water" }); g[y][x] = "."; }
-    else if (/[a-z]/.test(c) && lv.chans[c]) { (lv.chans[c].t === "lever" ? lv.levers : lv.plates).push({ x, y, ch: c }); g[y][x] = "."; }
-    else if (/[A-Z]/.test(c) && lv.chans[c.toLowerCase()] && c !== "I" && c !== "L" && c !== "W") { lv.gates.push({ x, y, ch: c.toLowerCase() }); g[y][x] = "."; }
+    else if (lv.chans[c]) { (lv.chans[c].t === "lever" ? lv.levers : lv.plates).push({ x, y, ch: c }); g[y][x] = "."; }
+    else if (c !== c.toLowerCase() && lv.chans[c.toLowerCase()] && !"ILWSRB".includes(c)) { lv.gates.push({ x, y, ch: c.toLowerCase() }); g[y][x] = "."; }
   }
   lv.crumbles = []; lv.crumbleAt = {};
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (g[y][x] === "=") { const cr = { x, y, touched: 0, gone: false, goneAt: 0 }; lv.crumbles.push(cr); lv.crumbleAt[x + "," + y] = cr; }
   lv.fans = (def.fans || []).map((f) => ({ ...f, on: false }));
+  lv.jets = (def.jets || []).map((j) => ({ ...j, active: false, warn: false }));
+  lv.movers = (def.movers || []).map((m) => ({ ...m, dx: 0, rect: { x: m.x * T, y: m.y * T, w: m.w * T, h: 12 } }));
+  lv.keys = (def.keys || []).map((k, i) => ({ ...k, i, holder: null, used: false }));
+  lv.diff = 1; lv.dark = false; lv.lives = 0; lv.wTime = 5; lv.crDelay = 450;
   for (const e of def.elev) lv.elev.push({ ...e, off: 0, d: 0, rect: { x: e.x * T, y: e.y * T, w: e.w * T, h: T } });
   lv.gateAt = {}; for (const gt of lv.gates) lv.gateAt[gt.x + "," + gt.y] = gt.ch;
   lv.checkpoint = lv.spawns.map((s) => ({ x: s.x, y: s.y }));
@@ -501,7 +540,7 @@ let myName = "", myTeam = localStorage.getItem("fw-team") || "any", mySpec = fal
 let net = null, room = "", present = {}, knownIds = new Set();
 let phase = "lobby";           // lobby | play | result
 let cfgLvl = 0, cfgShape = "any", parts = [], me = null, others = {};
-let camX = 0, camY = 0, camSnap = true;
+let camX = 0, camY = 0, camSnap = true, cfgDiff = 1, cfgDark = false, restarting = false;
 let gemsTaken = new Set(), deaths = {}, gemsBy = {}, emos = {}, pings = [], particles = [], feed = [], squash = [], bubbles = {};
 let startAt = 0, clearAt = 0, lastSend = 0, lastSentKey = "", steps = 0, lastEmo = 0, lastLever = 0;
 const keys = {};
@@ -509,6 +548,12 @@ const elapsed = () => (phase === "play" ? Math.max(0, (performance.now() - start
 const countingDown = () => phase === "play" && (performance.now() - startAt) / 1000 < COUNTDOWN;
 
 // ===================== 통신 (Supabase 또는 테스트 모드) =====================
+let connOk = true;
+function setConn(ok) {
+  if (ok === connOk) return; connOk = ok;
+  const el = $("connTxt"); if (el) { el.textContent = ok ? "🟢 연결됨" : "🟡 다시 연결 중…"; el.style.color = ok ? "#2b8a3e" : "#e67700"; }
+  if (!ok) sysMsg("🟡 연결이 잠깐 끊겼어요. 자동으로 다시 연결하는 중…");
+}
 function sysMsg(t) { const d = document.createElement("div"); d.className = "sys"; d.textContent = t; $("log").appendChild(d); $("log").scrollTop = 1e9; }
 function presencePayload() { return { name: myName, joinedAt, spec: mySpec, tm: myTeam, v: GAME_VERSION }; }
 function makeSupabaseNet(rm) {
@@ -521,9 +566,15 @@ function makeSupabaseNet(rm) {
     for (const id in st) { const p = st[id][st[id].length - 1]; if (p) list[id] = { name: p.name, joinedAt: p.joinedAt, spec: !!p.spec, tm: p.tm || "any", v: p.v || "옛날 버전" }; }
     api.presFn && api.presFn(list);
   });
+  let joinedOnce = false;
   ch.subscribe(async (status) => {
-    if (status === "SUBSCRIBED") { await ch.track(presencePayload()); api.ready && api.ready(); }
-    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") sysMsg("서버 연결 문제가 생겼어요. 새로고침해 보세요.");
+    if (status === "SUBSCRIBED") {
+      await ch.track(presencePayload()); setConn(true);
+      if (!joinedOnce) { joinedOnce = true; api.ready && api.ready(); }
+      else { sysMsg("🟢 다시 연결됐어요! 게임 상태를 맞추는 중…"); api.send({ t: "needsync", id: myId, ph: phase }); }
+    }
+    // 끊기면 supabase가 알아서 다시 붙어요. 그동안 화면에 표시만 해요.
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setConn(false);
   });
   api.send = (msg) => ch.send({ type: "broadcast", event: "m", payload: msg });
   api.retrack = () => ch.track(presencePayload());
@@ -602,7 +653,7 @@ function onPresence(list) {
   for (const id of before) if (!knownIds.has(id)) { const p = parts.find((q) => q.id === id); sysMsg(`${p ? p.name : "누군가"} 님이 나갔어요`); }
   if (isHost()) {
     if (phase === "play") { for (const id of knownIds) if (!before.has(id) && id !== myId) send(syncMsg(id)); }
-    else if (phase === "lobby") send({ t: "cfg", lvl: cfgLvl, shape: cfgShape });
+    else if (phase === "lobby") send({ t: "cfg", lvl: cfgLvl, shape: cfgShape, diff: cfgDiff, dark: cfgDark });
   }
   renderPlayers(); renderLobbyBar(); checkVersions();
 }
@@ -610,20 +661,40 @@ function syncMsg(to) {
   const lev = {}, lat = [];
   const pas = [];
   for (const k in L.chans) { if (L.chans[k].lever) lev[k] = 1; if (L.chans[k].latched) lat.push(k); if (L.chans[k].passed) pas.push(k); }
-  return { pas, t: "sync", to, lvl: L.idx, seed: L.def.seed, shape: L.def.shape, parts, gems: [...gemsTaken], lev, lat, el: elapsed(), deaths, gemsBy };
+  return { pas, diff: L.diff, dark: L.dark, lives: L.lives, keys: L.keys.map((k) => [k.holder, k.used]), unl: Object.keys(L.chans).filter((k) => L.chans[k].unlocked), t: "sync", to, lvl: L.idx, seed: L.def.seed, shape: L.def.shape, parts, gems: [...gemsTaken], lev, lat, el: elapsed(), deaths, gemsBy };
 }
 
 // ===================== 메시지 처리 =====================
 function handle(m) {
   switch (m.t) {
     case "chat": { if (m.id) bubbles[m.id] = { text: m.text, at: performance.now() }; const d = document.createElement("div"); d.innerHTML = `<b>${esc(m.name)}</b> ${esc(m.text)}`; $("log").appendChild(d); $("log").scrollTop = 1e9; return; }
-    case "cfg": cfgLvl = m.lvl; if (m.shape) cfgShape = m.shape; if (phase === "lobby") loadLevel(previewDef()); renderLobbyBar(); return;
+    case "cfg": cfgLvl = m.lvl; if (m.shape) cfgShape = m.shape; if (m.diff != null) cfgDiff = m.diff; if (m.dark != null) cfgDark = m.dark; if (phase === "lobby") loadLevel(previewDef()); renderLobbyBar(); return;
+    case "needsync":
+      if (!isHost() || m.id === myId) return;
+      if (phase === "play") send(m.ph === "play" ? Object.assign(syncMsg(m.id), { t: "resync" }) : syncMsg(m.id));
+      return;
+    case "resync":
+      if (m.to !== myId || phase !== "play" || !L) return;
+      for (const i of m.gems) gemsTaken.add(i);
+      for (const k in m.lev) if (L.chans[k]) L.chans[k].lever = true;
+      for (const k of m.lat) if (L.chans[k] && !L.chans[k].latched) { L.chans[k].latched = true; L.checkpoint = L.plates.filter((p) => p.ch === k).map((p) => ({ x: p.x, y: p.y })); }
+      for (const k of m.pas || []) if (L.chans[k]) L.chans[k].passed = true;
+      for (const k of m.unl || []) if (L.chans[k]) L.chans[k].unlocked = true;
+      (m.keys || []).forEach((kk, i) => { if (L.keys[i]) { L.keys[i].holder = kk[0]; L.keys[i].used = kk[1]; } });
+      if (m.lives != null) L.lives = m.lives;
+      deaths = m.deaths || deaths; gemsBy = m.gemsBy || gemsBy;
+      sysMsg("✅ 게임 상태를 다시 맞췄어요"); return;
     case "start": if (m.v && m.v !== GAME_VERSION) { sysMsg(`⚠️ 방장 버전(${m.v})과 내 버전(${GAME_VERSION})이 달라요! Ctrl+Shift+R로 새로고침해 주세요.`); toast("버전이 달라요! Ctrl+Shift+R 새로고침"); } startLevel(m); return;
-    case "sync": if (m.to === myId && phase !== "play") { startLevel({ lvl: m.lvl, seed: m.seed, shape: m.shape, parts: m.parts }); applySync(m); sysMsg("게임이 진행 중이라 이번 스테이지는 관전해요. 다음 스테이지부터 같이 해요!"); } return;
+    case "sync": if (m.to === myId && phase !== "play") { startLevel({ lvl: m.lvl, seed: m.seed, shape: m.shape, parts: m.parts, diff: m.diff, dark: m.dark }); if (m.lives != null) L.lives = m.lives; (m.keys || []).forEach((kk, i) => { if (L.keys[i]) { L.keys[i].holder = kk[0]; L.keys[i].used = kk[1]; } }); for (const k of m.unl || []) if (L.chans[k]) L.chans[k].unlocked = true; applySync(m); sysMsg("게임이 진행 중이라 이번 스테이지는 관전해요. 다음 스테이지부터 같이 해요!"); } return;
     case "st": {
       const o = others[m.id]; if (!o) return;
-      if (Math.abs(o.rx - m.x) > 80 || Math.abs(o.ry - m.y) > 80 || (o.dead && !m.d)) { o.rx = m.x; o.ry = m.y; }
-      o.x = m.x; o.y = m.y; o.f = m.f; o.dead = !!m.d; o.ex = !!m.ex; o.g = !!m.g; o.seen = performance.now();
+      if (!o.b) o.b = { x: m.x, y: m.y, vx: 0, vy: 0, ground: true, coyote: 0, jbuf: 0, f: 1, ride: -1, rideM: -1, ice: false };
+      const big = Math.abs(o.rx - m.x) > 80 || Math.abs(o.ry - m.y) > 80 || (o.dead && !m.d);
+      // 받은 위치로 바로 순간이동하지 않고, 화면에서 부드럽게 따라가요
+      o.offX = big ? 0 : o.rx - m.x; o.offY = big ? 0 : o.ry - m.y;
+      Object.assign(o.b, { x: m.x, y: m.y, vx: m.vx || 0, vy: m.vy || 0, ground: !!m.g, f: m.f || 1, ride: -1, rideM: -1 });
+      if (big) { o.rx = m.x; o.ry = m.y; }
+      o.x = m.x; o.y = m.y; o.f = m.f; o.dir = m.dir || 0; o.jh = !!m.jh; o.dead = !!m.d; o.ex = !!m.ex; o.g = !!m.g; o.seen = performance.now();
       return;
     }
     case "gem": {
@@ -646,16 +717,23 @@ function handle(m) {
       deaths[m.id] = (deaths[m.id] || 0) + 1;
       const p = parts.find((q) => q.id === m.id);
       burst(m.x, m.y, m.el === "fire" ? "#ff922b" : "#4dabf7", 22);
-      const why = { L: "용암에 빠졌어요 🔥", W: "물에 빠져 꺼졌어요 💦", "~": "독물에 빠졌어요 🤢", fall: "떨어졌어요 😵", crush: "깔려서 납작해졌어요 🫓" }[m.why] || "쓰러졌어요";
+      const why = { L: "용암에 빠졌어요 🔥", W: "물에 빠져 꺼졌어요 💦", "~": "독물에 빠졌어요 🤢", fall: "떨어졌어요 😵", crush: "깔려서 납작해졌어요 🫓", "jet~": "독가스를 맞았어요 🤢", jetL: "용암 분수를 맞았어요 🌋", jetW: "물대포를 맞았어요 💦" }[m.why] || "쓰러졌어요";
+      for (const k of L.keys) if (k.holder === m.id) { k.holder = null; pushFeed("🔑 열쇠가 제자리로 돌아갔어요"); }
+      if (L.lives > 0 && phase === "play") {
+        L.lives--;
+        if (L.lives <= 0 && !restarting) { restarting = true; pushFeed("💥 팀 목숨이 다 떨어졌어요! 처음부터 다시!"); if (isHost()) setTimeout(() => emit({ t: "start", v: GAME_VERSION, lvl: L.idx, seed: L.def.seed, shape: L.def.shape, diff: L.diff, dark: L.dark, parts }), 1800); }
+      }
       if (m.why === "crush") squash.push({ x: m.x, y: m.y, team: m.el, col: m.col || "#fff", name: p ? p.name : "", at: performance.now() });
       pushFeed(`💀 ${p ? p.name : "누군가"} 님이 ${why}`);
       renderPlayers(); return;
     }
-    case "wopen": { const c = L && L.chans[m.ch]; if (c) { if (performance.now() > c.timerEnd) pushFeed("⚖️ 무게 발판 성공! 문이 5초 열려요 — 다 같이 뛰어!"); c.timerEnd = performance.now() + 5000; } return; }
+    case "wopen": { const c = L && L.chans[m.ch]; if (c) { if (performance.now() > c.timerEnd) pushFeed(`⚖️ 무게 발판 성공! 문이 ${L.wTime}초 열려요 — 다 같이 뛰어!`); c.timerEnd = performance.now() + L.wTime * 1000; } return; }
+    case "key": { const k = L && L.keys[m.i]; if (!k || k.holder || k.used) return; k.holder = m.id; const p = parts.find((q) => q.id === m.id); pushFeed(`🔑 ${p ? p.name : "누군가"} 님이 열쇠를 주웠어요! 🔒 문으로 가져가요`); return; }
+    case "unlock": { const k = L && L.keys[m.i]; if (!k || k.used) return; k.used = true; k.holder = null; if (L.chans[m.ch]) L.chans[m.ch].unlocked = true; pushFeed("🔓 자물쇠 문이 열렸어요!"); return; }
     case "crumb": { const cr = L && L.crumbles[m.i]; if (cr && !cr.touched && !cr.gone) cr.touched = performance.now(); return; }
     case "pass": { const c = L && L.chans[m.ch]; if (c) c.passed = true; return; }
     case "emo": emos[m.id] = { e: m.e, at: performance.now() }; return;
-    case "ping": pings.push({ x: m.x, y: m.y, name: m.name, el: m.el, at: performance.now() }); if (pings.length > 8) pings.shift(); return;
+    case "ping": pings.push({ x: m.x, y: m.y, k: PINGS[m.k] ? m.k : "q", name: m.name, el: m.el, at: performance.now() }); if (pings.length > 8) pings.shift(); return;
     case "clear": if (phase === "play") showResult(m); return;
     case "lobby": phase = "lobby"; me = null; others = {}; parts = []; $("result").classList.add("hidden"); loadLevel(previewDef()); renderPlayers(); renderLobbyBar(); return;
   }
@@ -675,41 +753,60 @@ function spawnPos(i) {
   const cp = L.checkpoint[i % L.checkpoint.length], k = Math.floor(i / L.checkpoint.length);
   return { x: cp.x * T + (T - PW) / 2 + (k % 2 ? 4 : -4) * Math.ceil(k / 2), y: cp.y * T + T - PH };
 }
+function applyDiff(diff, dark, n) {
+  const D = DIFFS[diff] || DIFFS[1];
+  L.diff = diff; L.dark = !!dark || diff === 3; L.wTime = D.wTime; L.crDelay = D.crDelay;
+  L.lives = typeof D.lives === "function" ? D.lives(n) : 0; L.livesMax = L.lives;
+  for (const j of L.jets) j.on = D.jetOn;
+  for (const mv of L.movers) mv.period = D.mvPeriod;
+}
 function startLevel(m) {
-  loadLevel(m.lvl === "R" ? makeRandomDef(m.seed, m.shape, m.parts.length) : m.lvl); cfgLvl = m.lvl;
+  const diff = m.diff == null ? 1 : m.diff;
+  loadLevel(m.lvl === "R" ? makeRandomDef(m.seed, m.shape, m.parts.length, diff) : m.lvl); cfgLvl = m.lvl;
+  applyDiff(diff, m.dark, m.parts.length); restarting = false;
   parts = m.parts; phase = "play"; startAt = performance.now(); clearAt = 0;
   gemsTaken = new Set(); deaths = {}; gemsBy = {}; emos = {}; pings = []; particles = []; feed = []; others = {}; squash = []; bubbles = {};
   parts.forEach((p, i) => {
     if (p.id === myId) return;
     const s = spawnPos(i);
-    others[p.id] = { x: s.x, y: s.y, rx: s.x, ry: s.y, f: 1, team: p.team, col: p.col, name: p.name, dead: false, ex: false, g: true, seen: 0 };
+    others[p.id] = { x: s.x, y: s.y, rx: s.x, ry: s.y, offX: 0, offY: 0, b: null, dir: 0, jh: false, f: 1, team: p.team, col: p.col, name: p.name, dead: false, ex: false, g: true, seen: 0 };
   });
   const mi = parts.findIndex((p) => p.id === myId);
-  me = mi >= 0 ? { idx: mi, team: parts[mi].team, col: parts[mi].col, x: 0, y: 0, vx: 0, vy: 0, ground: false, coyote: 0, jbuf: 0, f: 1, dead: 0, ex: false, ride: -1, ice: false, walk: 0 } : null;
+  me = mi >= 0 ? { idx: mi, team: parts[mi].team, col: parts[mi].col, x: 0, y: 0, vx: 0, vy: 0, ground: false, coyote: 0, jbuf: 0, f: 1, dead: 0, ex: false, ride: -1, rideM: -1, ice: false, walk: 0 } : null;
   if (me) respawn();
   $("result").classList.add("hidden");
   renderPlayers(); renderLobbyBar();
   sysMsg(`▶ ${L.def.name} 시작! ${L.def.tip}`);
 }
-function respawn() { const s = spawnPos(me.idx); Object.assign(me, { x: s.x, y: s.y, vx: 0, vy: 0, dead: 0, ex: false, ride: -1 }); }
+function respawn() { const s = spawnPos(me.idx); Object.assign(me, { x: s.x, y: s.y, vx: 0, vy: 0, dead: 0, ex: false, ride: -1, rideM: -1 }); }
 
 // ===================== 로비 =====================
-function previewDef() { return cfgLvl === "R" ? Object.assign(makeRandomDef(4242, cfgShape === "any" ? "side" : cfgShape, Math.max(2, Math.min(6, lobbyPlayers().length || 2))), { name: "🎲 랜덤 신전 (예시 맵)", tip: "시작할 때마다 새 신전이 만들어져요! 모양: " + (cfgShape === "any" ? "🎲 아무거나" : SHAPES[cfgShape]) }) : cfgLvl; }
+function previewDef() { return cfgLvl === "R" ? Object.assign(makeRandomDef(4242, cfgShape === "any" ? "side" : cfgShape, Math.max(2, Math.min(6, lobbyPlayers().length || 2)), cfgDiff), { name: "🎲 랜덤 신전 (예시 맵)", tip: "시작할 때마다 새 신전이 만들어져요! 모양: " + (cfgShape === "any" ? "🎲 아무거나" : SHAPES[cfgShape]) }) : cfgLvl; }
 function buildLvlPick() {
   const box = $("lvlPick");
   const items = LEVELS.map((lv, i) => [i, lv.name]).concat([["R", "🎲 랜덤 신전"]]);
   for (const [i, name] of items) {
     const b = document.createElement("button"); b.dataset.i = i; b.textContent = name;
     if (i === "R") b.className = "green";
-    b.onclick = () => { if (!isHost()) return toast("스테이지는 방장이 골라요"); emit({ t: "cfg", lvl: i, shape: cfgShape }); };
+    b.onclick = () => { if (!isHost()) return toast("스테이지는 방장이 골라요"); emit({ t: "cfg", lvl: i, shape: cfgShape, diff: cfgDiff, dark: cfgDark }); };
     box.appendChild(b);
   }
   const sb = $("shapePick");
   for (const k of ["any", ...Object.keys(SHAPES)]) {
     const b = document.createElement("button"); b.dataset.sh = k; b.textContent = k === "any" ? "🎲 아무거나" : SHAPES[k];
-    b.onclick = () => { if (!isHost()) return toast("모양은 방장이 골라요"); emit({ t: "cfg", lvl: "R", shape: k }); };
+    b.onclick = () => { if (!isHost()) return toast("모양은 방장이 골라요"); emit({ t: "cfg", lvl: "R", shape: k, diff: cfgDiff, dark: cfgDark }); };
     sb.appendChild(b);
   }
+  const db = $("diffPick");
+  DIFFS.forEach((d, i) => {
+    const b = document.createElement("button"); b.dataset.d = i; b.textContent = d.name;
+    b.onclick = () => { if (!isHost()) return toast("난이도는 방장이 골라요"); emit({ t: "cfg", lvl: cfgLvl, shape: cfgShape, diff: i, dark: cfgDark }); };
+    db.appendChild(b);
+  });
+  const dk = document.createElement("button"); dk.id = "darkBtn"; dk.textContent = "🌑 어둠 모드";
+  dk.onclick = () => { if (!isHost()) return toast("어둠 모드는 방장이 골라요"); emit({ t: "cfg", lvl: cfgLvl, shape: cfgShape, diff: cfgDiff, dark: !cfgDark }); };
+  db.appendChild(dk);
+  const note = document.createElement("span"); note.id = "diffNote"; note.className = "hostnote"; db.appendChild(note);
   loadLevel(previewDef());
 }
 document.querySelectorAll(".teampick [data-tm]").forEach((b) => b.onclick = () => { myTeam = b.dataset.tm; localStorage.setItem("fw-team", myTeam); net && net.retrack(); renderLobbyBar(); });
@@ -731,15 +828,16 @@ function hostStart(lvl, keepSeed) {
   if (versionBad().length) return toast("버전이 다른 친구가 있어서 시작할 수 없어요. 모두 Ctrl+Shift+R 새로고침!");
   const ids = lobbyPlayers();
   if (ids.length < MIN_PLAYERS) return toast(`최소 ${MIN_PLAYERS}명이 있어야 해요! 친구를 불러 주세요 🙏`);
-  const msg = { t: "start", v: GAME_VERSION, lvl, parts: makeTeams(ids) };
+  const msg = { t: "start", v: GAME_VERSION, lvl, parts: makeTeams(ids), diff: cfgDiff, dark: cfgDark };
   if (lvl === "R") {
     msg.seed = keepSeed ? L.def.seed : Math.floor(Math.random() * 1e9);
+    if (keepSeed) { msg.diff = L.diff; msg.dark = L.dark; }
     msg.shape = keepSeed ? L.def.shape : cfgShape === "any" ? Object.keys(SHAPES)[Math.floor(Math.random() * 4)] : cfgShape;
   }
   emit(msg);
 }
 $("startBtn").onclick = () => { if (isHost() && phase === "lobby") hostStart(cfgLvl); };
-$("restartBtn").onclick = () => { if (!isHost() || phase !== "play") return; if (confirm("이 스테이지를 처음부터 다시 할까요?")) emit({ t: "start", lvl: L.idx, seed: L.def.seed, shape: L.def.shape, parts }); };
+$("restartBtn").onclick = () => { if (!isHost() || phase !== "play") return; if (confirm("이 스테이지를 처음부터 다시 할까요?")) emit({ t: "start", v: GAME_VERSION, lvl: L.idx, seed: L.def.seed, shape: L.def.shape, diff: L.diff, dark: L.dark, parts }); };
 function renderLobbyBar() {
   const lobby = phase === "lobby";
   $("lobbyBar").classList.toggle("hidden", !lobby);
@@ -747,6 +845,9 @@ function renderLobbyBar() {
   document.querySelectorAll(".teampick [data-tm]").forEach((b) => b.classList.toggle("sel", b.dataset.tm === myTeam));
   document.querySelectorAll("#lvlPick button").forEach((b) => b.classList.toggle("sel", String(b.dataset.i) === String(cfgLvl)));
   $("shapePick").classList.toggle("hidden", cfgLvl !== "R");
+  document.querySelectorAll("#diffPick button[data-d]").forEach((b) => b.classList.toggle("sel", +b.dataset.d === cfgDiff));
+  if ($("darkBtn")) { $("darkBtn").classList.toggle("sel", cfgDark || cfgDiff === 3); $("darkBtn").textContent = cfgDark || cfgDiff === 3 ? "🌑 어둠 모드 ON" : "🌑 어둠 모드"; }
+  if ($("diffNote")) $("diffNote").textContent = ["죽어도 괜찮아요", "웅덩이가 넓어지고 분출구·열쇠가 자주 나와요", "넓은 웅덩이 + ❤️ 팀 목숨! 다 쓰면 처음부터", "체크포인트 1개 + 목숨 적음 + 항상 어둠 😱"][cfgDiff];
   document.querySelectorAll("#shapePick button").forEach((b) => b.classList.toggle("sel", b.dataset.sh === cfgShape));
   $("specToggle").textContent = mySpec ? "🙋 참가하기" : "👀 관전하기";
   const host = isHost(), n = lobbyPlayers().length;
@@ -805,7 +906,7 @@ addEventListener("keydown", (e) => {
   if (!net) return;
   if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); if (document.fullscreenElement) { $("fsChat").classList.remove("hidden"); $("fsChat").focus(); } else $("chatInput").focus(); return; }
   const ei = ["Digit1", "Digit2", "Digit3", "Digit4"].indexOf(e.code);
-  if (ei >= 0) { if (performance.now() - lastEmo > 700) { lastEmo = performance.now(); emit({ t: "emo", id: myId, e: EMOTES[ei] }); } return; }
+  if (ei >= 0) { if (!e.repeat && performance.now() - lastEmo > 700 && canPing()) { lastEmo = performance.now(); emit({ t: "emo", id: myId, e: EMOTES[ei] }); } return; }   // 이모티콘도 핑과 같은 제한(5초에 3번)
   if (phase === "play" && (JUMP_KEYS.includes(e.code) || DOWN_KEYS.includes(e.code) || e.code.startsWith("Arrow"))) e.preventDefault();
   if (!e.repeat && JUMP_KEYS.includes(e.code) && me) me.jbuf = 7;
   if (!e.repeat && DOWN_KEYS.includes(e.code)) tryLever();
@@ -814,12 +915,74 @@ addEventListener("keydown", (e) => {
 addEventListener("keyup", (e) => { keys[e.code] = false; });
 addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
 const held = (list) => list.some((k) => keys[k]);
+// ===================== 핑 (신호) =====================
+// 짧게 클릭 = ❓ · 우클릭 = ⚠️ 위험! · 꾹 누르고 방향으로 끌었다 놓기 = 신호 고르기
+// 5초 안에 3번까지만! 넘게 찍으면 4초 동안 쉬어야 해요.
+const PINGS = {
+  q: { icon: "?", label: "뭐지?", col: null },
+  danger: { icon: "!", label: "위험!", col: "#fa5252" },
+  go: { icon: "➜", label: "여기로!", col: "#40c057" },
+  wait: { icon: "✋", label: "기다려!", col: "#fab005" },
+  help: { icon: "🙋", label: "도와줘!", col: "#7950f2" },
+};
+const WHEEL = [{ k: "danger", a: -Math.PI / 2 }, { k: "go", a: 0 }, { k: "wait", a: Math.PI / 2 }, { k: "help", a: Math.PI }];
+const PING_MAX = 3, PING_WINDOW = 5000, PING_LOCK = 4000;
+let pingTimes = [], pingLockUntil = 0, wheel = null;
+function pingCooldownLeft() { return Math.max(0, pingLockUntil - performance.now()); }
+function canPing() {
+  const now = performance.now();
+  if (now < pingLockUntil) { toast(`⏳ 신호는 ${Math.ceil((pingLockUntil - now) / 1000)}초 뒤에 다시 보낼 수 있어요`); return false; }
+  pingTimes = pingTimes.filter((t) => now - t < PING_WINDOW);
+  if (pingTimes.length >= PING_MAX) { pingLockUntil = now + PING_LOCK; toast(`🙅 신호를 너무 많이 보냈어요! ${PING_LOCK / 1000}초 쉬어요`); return false; }
+  pingTimes.push(now); return true;
+}
+function boardPos(e) {
+  const r = $("board").getBoundingClientRect();
+  return { sx: ((e.clientX - r.left) / r.width) * CW, sy: ((e.clientY - r.top) / r.height) * CH };
+}
+function sendPing(k, sx, sy) { if (!canPing()) return; emit({ t: "ping", k, x: sx + camX, y: sy + camY, name: myName, el: me ? me.team : "spec" }); }
+$("board").addEventListener("contextmenu", (e) => e.preventDefault());
 $("board").addEventListener("mousedown", (e) => {
   if (phase !== "play" || !net) return;
-  const r = e.target.getBoundingClientRect();
-  const x = ((e.clientX - r.left) / r.width) * CW + camX, y = ((e.clientY - r.top) / r.height) * CH + camY;
-  emit({ t: "ping", x, y, name: myName, el: me ? me.team : "spec" });
+  e.preventDefault();
+  const p = boardPos(e);
+  if (e.button === 2) { sendPing("danger", p.sx, p.sy); return; }
+  if (e.button !== 0) return;
+  wheel = { sx: p.sx, sy: p.sy, cx: p.sx, cy: p.sy, at: performance.now(), sel: null };
 });
+addEventListener("mousemove", (e) => {
+  if (!wheel) return;
+  const p = boardPos(e); wheel.cx = p.sx; wheel.cy = p.sy;
+  const dx = p.sx - wheel.sx, dy = p.sy - wheel.sy;
+  if (Math.hypot(dx, dy) < 22) { wheel.sel = null; return; }
+  const a = Math.atan2(dy, dx);
+  let best = null, bd = 9;
+  for (const w of WHEEL) { let d = Math.abs(a - w.a); if (d > Math.PI) d = 2 * Math.PI - d; if (d < bd) { bd = d; best = w.k; } }
+  wheel.sel = best;
+});
+addEventListener("mouseup", (e) => {
+  if (!wheel || e.button !== 0) return;
+  const w = wheel; wheel = null;
+  const held = performance.now() - w.at;
+  if (w.sel) sendPing(w.sel, w.sx, w.sy);            // 방향으로 끌어서 고르기
+  else if (held < 250) sendPing("q", w.sx, w.sy);   // 짧게 클릭 = ❓
+  // 꾹 눌렀다가 가운데에서 놓으면 취소
+});
+function drawWheel() {
+  if (!wheel || performance.now() - wheel.at < 180) return;
+  const { sx, sy } = wheel;
+  ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.beginPath(); ctx.arc(sx, sy, 74, 0, 7); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.arc(sx, sy, 20, 0, 7); ctx.fill();
+  ctx.font = "bold 10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#ddd"; ctx.fillText("취소", sx, sy);
+  for (const w of WHEEL) {
+    const P = PINGS[w.k], x = sx + Math.cos(w.a) * 50, y = sy + Math.sin(w.a) * 50, on = wheel.sel === w.k;
+    ctx.fillStyle = on ? P.col : "rgba(255,255,255,0.85)"; ctx.beginPath(); ctx.arc(x, y, on ? 21 : 17, 0, 7); ctx.fill();
+    ctx.fillStyle = on ? "#fff" : P.col; ctx.font = "bold 15px sans-serif"; ctx.fillText(P.icon, x, y - 3);
+    ctx.font = "bold 9px sans-serif"; ctx.fillText(P.label, x, y + 10);
+  }
+  const cd = pingCooldownLeft();
+  if (cd > 0) tag(`⏳ ${Math.ceil(cd / 1000)}초`, sx, sy + 88, "rgba(224,49,49,0.9)", "#fff");
+}
 function tryLever() {
   if (!me || me.dead || phase !== "play" || countingDown() || performance.now() - lastLever < 350) return;
   const pr = { x: me.x, y: me.y, w: PW, h: PH };
@@ -863,9 +1026,10 @@ function updateChannels() {
       if (!c.latched && canAct && c.count >= needOf(c)) emit({ t: "latch", ch: k });
       c.on = c.latched;
     } else if (c.t === "weight") {
-      if (canAct && c.count >= needOf(c) && c.timerEnd - now < 1500) emit({ t: "wopen", ch: k });
+      if (canAct && c.count >= needOf(c) && c.timerEnd - now < 1200) emit({ t: "wopen", ch: k });
       c.on = now < c.timerEnd || c.passed;
     } else if (c.t === "lever") c.on = c.lever || c.passed;
+    else if (c.t === "lock") c.on = !!c.unlocked || c.passed;
     else if (c.passed) c.on = true;
   }
   // 문: 닫힐 때 안에 있으면 깔려요!
@@ -884,34 +1048,48 @@ function updateChannels() {
     const rr = { x: cr.x * T, y: cr.y * T, w: T, h: T };
     if (cr.gone) { if (now - cr.goneAt > 3500 && !bodies.some((b) => ov(b, rr))) { cr.gone = false; cr.touched = 0; } continue; }
     if (!cr.touched && me && !me.dead && me.y + PH >= cr.y * T - 2 && me.y + PH <= cr.y * T + 3 && me.x + PW > cr.x * T && me.x < cr.x * T + T) emit({ t: "crumb", i: L.crumbles.indexOf(cr) });
-    if (cr.touched && now - cr.touched > 450) { cr.gone = true; cr.goneAt = now; }
+    if (cr.touched && now - cr.touched > L.crDelay) { cr.gone = true; cr.goneAt = now; }
   }
+  // 움직이는 발판·분출구: 게임 시간으로 계산 → 모두 같은 박자
+  const gtime = elapsed();
+  for (const mv of L.movers) {
+    const nx = (mv.x + mv.amp * Math.sin((2 * Math.PI * (gtime + mv.phase)) / mv.period)) * T;
+    mv.dx = nx - mv.rect.x; mv.rect.x = nx;
+  }
+  for (const j of L.jets) { const ph = (gtime + j.phase) % j.period; j.active = !countingDown() && ph < j.on; j.warn = !j.active && ph > j.period - 0.5; }
+  // 열쇠 든 사람이 나가면 열쇠는 제자리로
+  for (const k of L.keys) if (k.holder && k.holder !== myId && !present[k.holder]) k.holder = null;
 }
 function solidsNear(p) {
   const res = [];
   const x0 = Math.floor(p.x / T) - 1, x1 = Math.floor((p.x + PW) / T) + 1, y0 = Math.floor(p.y / T) - 1, y1 = Math.floor((p.y + PH) / T) + 1;
   for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (solidTile(tx, ty)) res.push({ x: tx * T, y: ty * T, w: T, h: T, tile: tileAt(tx, ty) });
   L.elev.forEach((e, i) => res.push({ ...e.rect, elev: i }));
+  L.movers.forEach((m, i) => res.push({ ...m.rect, mover: i }));
   return res;
 }
-function stepMe() {
-  const p = me;
-  if (p.dead) { if (--p.dead <= 0) respawn(); return; }
-  // 엘리베이터 타고 있으면 같이 움직이기
+// 몸 하나를 한 칸(1/60초) 움직이는 물리 — 나도, 친구 화면 예측도 똑같은 규칙을 써요
+function moveBody(p, dir, jumpHeld, local) {
+  // 엘리베이터·움직이는 발판 타고 있으면 같이 움직이기
   if (p.ride >= 0 && L.elev[p.ride]) p.y += L.elev[p.ride].d;
-  // 닫힌 문이 몸에 겹치면 → 깔림!
-  const core = { x: p.x + 3, y: p.y + 3, w: PW - 6, h: PH - 6 };
-  for (const gt of L.gates) if (L.chans[gt.ch].open < 0.5 && ov(core, { x: gt.x * T, y: gt.y * T, w: T, h: T })) return die("crush");
+  if (p.rideM >= 0 && L.movers[p.rideM]) p.x += L.movers[p.rideM].dx;
+  for (const mv of L.movers) if (ov({ x: p.x, y: p.y, w: PW, h: PH }, mv.rect)) {
+    if (p.y + PH - mv.rect.y <= 8) p.y = mv.rect.y - PH;
+    else p.x = mv.dx > 0 ? mv.rect.x + mv.rect.w : mv.rect.x - PW;
+  }
+  if (local) {
+    // 닫힌 문이 몸에 겹치면 → 깔림!
+    const core = { x: p.x + 3, y: p.y + 3, w: PW - 6, h: PH - 6 };
+    for (const gt of L.gates) if (L.chans[gt.ch].open < 0.5 && ov(core, { x: gt.x * T, y: gt.y * T, w: T, h: T })) return "crush";
+  }
   // 엘리베이터가 몸에 겹치면: 발이 위쪽이면 올라타고, 위에서 내려와 덮치면 깔림
   for (let i = 0; i < L.elev.length; i++) {
     const e = L.elev[i], r = e.rect;
     if (!ov({ x: p.x, y: p.y, w: PW, h: PH }, r)) continue;
     if (p.y + PH - r.y <= 12) { p.y = r.y - PH; p.vy = Math.min(p.vy, 0); p.ride = i; p.ground = true; continue; }
     p.y = r.y + r.h; if (p.vy < 0) p.vy = 0;
-    if (solidsNear(p).some((s2) => s2.elev == null && ov({ x: p.x, y: p.y, w: PW, h: PH }, s2))) return die("crush");
+    if (local && solidsNear(p).some((s2) => s2.elev == null && ov({ x: p.x, y: p.y, w: PW, h: PH }, s2))) return "crush";
   }
-
-  const dir = (held(["ArrowRight", "KeyD"]) ? 1 : 0) - (held(["ArrowLeft", "KeyA"]) ? 1 : 0);
   if (dir) p.f = dir;
   if (p.ground && p.ice) { p.vx += dir * 0.09; if (!dir) p.vx *= 0.993; p.vx = Math.max(-MAXV * 1.35, Math.min(MAXV * 1.35, p.vx)); }
   else if (p.ground) p.vx += (dir * MAXV - p.vx) * 0.35;
@@ -919,43 +1097,67 @@ function stepMe() {
   else p.vx *= 0.97;
   p.coyote = p.ground ? 6 : Math.max(0, p.coyote - 1);
   if (p.jbuf > 0) p.jbuf--;
-  if (p.jbuf > 0 && p.coyote > 0) { p.vy = -JUMP; p.jbuf = 0; p.coyote = 0; p.ground = false; p.ride = -1; }
-  if (!held(JUMP_KEYS) && p.vy < -3) p.vy += 0.5;   // 짧게 누르면 낮게 점프
+  if (p.jbuf > 0 && p.coyote > 0) { p.vy = -JUMP; p.jbuf = 0; p.coyote = 0; p.ground = false; p.ride = -1; p.jumps = (p.jumps || 0) + 1; }
+  if (!jumpHeld && p.vy < -3) p.vy += 0.5;   // 짧게 누르면 낮게 점프
   p.vy = Math.min(MAXFALL, p.vy + GRAV);
-  // 바람 통로: 켜져 있으면 위로 붕~
   for (const fn of L.fans) if (fn.on) {
     const cx = p.x + PW / 2;
     if (cx >= fn.x * T && cx < (fn.x + fn.w) * T && p.y + PH > fn.top * T && p.y < (fn.y + 1) * T) { p.vy = Math.max(p.vy - 1.3, -5); p.coyote = 0; }
   }
-
-  // X 이동
   p.x += p.vx;
   for (const s of solidsNear(p)) if (ov({ x: p.x, y: p.y, w: PW, h: PH }, s)) { if (p.vx > 0) p.x = s.x - PW; else if (p.vx < 0) p.x = s.x + s.w; p.vx = 0; }
-  // Y 이동
-  p.y += p.vy; p.ground = false; p.ride = -1;
-  let under = [];
+  p.y += p.vy; p.ground = false; p.ride = -1; p.rideM = -1;
   for (const s of solidsNear(p)) if (ov({ x: p.x, y: p.y, w: PW, h: PH }, s)) {
-    if (p.vy > 0) { p.y = s.y - PH; p.ground = true; if (s.elev != null) p.ride = s.elev; }
+    if (p.vy > 0) { p.y = s.y - PH; p.ground = true; if (s.elev != null) p.ride = s.elev; if (s.mover != null) p.rideM = s.mover; }
     else if (p.vy < 0) p.y = s.y + s.h;
     p.vy = 0;
   }
-  // 발밑 확인 (얼음/용암/물/독물)
   p.ice = false;
-  if (p.ground && p.ride < 0) {
+  if (p.ground && p.ride < 0 && p.rideM < 0) {
+    const fy = Math.floor((p.y + PH + 1) / T);
+    for (const tx of [Math.floor((p.x + 3) / T), Math.floor((p.x + PW / 2) / T), Math.floor((p.x + PW - 3) / T)]) if (tileAt(tx, fy) === "I") p.ice = true;
+  }
+  return null;
+}
+function stepMe() {
+  const p = me;
+  if (p.dead) { if (--p.dead <= 0) respawn(); return; }
+  const dir = (held(["ArrowRight", "KeyD"]) ? 1 : 0) - (held(["ArrowLeft", "KeyA"]) ? 1 : 0);
+  p.dir = dir; p.jh = held(JUMP_KEYS);
+  const hit = moveBody(p, dir, p.jh, true);
+  if (hit) return die(hit);
+  // 발밑 확인 (용암/물/독물)
+  if (p.ground && p.ride < 0 && p.rideM < 0) {
     const fy = Math.floor((p.y + PH + 1) / T);
     const cx = Math.floor((p.x + PW / 2) / T), lx = Math.floor((p.x + 3) / T), rx = Math.floor((p.x + PW - 3) / T);
     const cc = tileAt(cx, fy);
-    for (const tx of [lx, cx, rx]) if (tileAt(tx, fy) === "I") p.ice = true;
     const bad = (c) => c === "~" || (c === "L" && p.team === "water") || (c === "W" && p.team === "fire");
     if (bad(cc) || (bad(tileAt(lx, fy)) && bad(tileAt(rx, fy)))) return die(bad(cc) ? cc : tileAt(lx, fy));
   }
   if (p.y > L.H * T + 40) return die("fall");
   const pr = { x: p.x, y: p.y, w: PW, h: PH };
-  // 보석
+  // 분출구: 내 원소면 괜찮고, 아니면(독가스는 모두) 위험!
+  for (const j of L.jets) if (j.active && (j.kind === "~" || (j.kind === "L" && p.team === "water") || (j.kind === "W" && p.team === "fire")) && ov({ x: p.x + 3, y: p.y + 3, w: PW - 6, h: PH - 6 }, { x: j.x * T + 5, y: (j.y - j.h + 1) * T, w: T - 10, h: j.h * T })) return die("jet" + j.kind);
+  // 🔑 열쇠 줍기 / 🔒 자물쇠 문 열기
+  for (const k of L.keys) {
+    if (k.used) continue;
+    if (!k.holder && ov(pr, { x: k.x * T + 2, y: k.y * T + 2, w: T - 4, h: T - 4 })) emit({ t: "key", i: k.i, id: myId });
+    if (k.holder === myId) for (const gt of L.gates) if (gt.ch === k.ch && ov(pr, { x: gt.x * T - T, y: gt.y * T, w: 2 * T, h: T })) { emit({ t: "unlock", i: k.i, ch: k.ch, id: myId }); break; }
+  }
   for (const gm of L.gems) if (!gemsTaken.has(gm.i) && gm.el === p.team && ov(pr, { x: gm.x * T + 4, y: gm.y * T + 4, w: 16, h: 16 })) emit({ t: "gem", i: gm.i, id: myId });
-  // 출구
   p.ex = L.doors.some((d) => d.el === p.team && ov(pr, { x: d.x * T, y: d.y * T - T, w: T, h: 2 * T }));
   if (p.ground && Math.abs(p.vx) > 0.3) p.walk += Math.abs(p.vx) * 0.12;
+}
+// 친구 화면 예측: 마지막으로 받은 위치·속도·누른 방향으로 내 컴퓨터에서 물리를 이어서 계산해요
+function stepOthers() {
+  for (const id in others) {
+    const o = others[id], b = o.b;
+    if (!b || o.dead || phase !== "play" || countingDown()) { o.rx = lerp(o.rx, o.x, 0.3); o.ry = lerp(o.ry, o.y, 0.3); continue; }
+    if (performance.now() - o.seen < 1500) moveBody(b, o.dir || 0, !!o.jh, false);
+    o.offX *= 0.92; o.offY *= 0.92;
+    o.rx = b.x + o.offX; o.ry = b.y + o.offY; o.g = b.ground; o.f = b.f || o.f;
+    o.x = b.x; o.y = b.y;
+  }
 }
 function die(why) {
   if (me.dead) return;
@@ -963,16 +1165,28 @@ function die(why) {
   emit({ t: "die", id: myId, x: me.x + PW / 2, y: me.y + PH / 2, el: me.team, col: me.col, why });
   sendState(true);
 }
+// 무료 한도(초당 100개)를 넘지 않게: 인원이 많을수록 덜 자주 보내고, 가만히 있으면 거의 안 보내요
+// (Supabase는 "보낸 1개 + 받는 사람 수"로 세서, 6명이면 메시지 1개 = 6개로 계산돼요)
+const MSG_BUDGET = 65;   // 위치 메시지에 쓸 초당 개수 (나머지는 보석·채팅·핑 여유분)
+function sendRateHz() { const n = Math.max(2, livePlayers().length); return Math.max(1.2, Math.min(12, MSG_BUDGET / (n * n))); }
+let lastDirKey = "", sendTokens = 2, lastTok = 0;
 function sendState(force) {
   if (!me) return;
-  const st = { t: "st", id: myId, x: Math.round(me.x), y: Math.round(me.y), f: me.f, d: me.dead ? 1 : 0, ex: me.ex ? 1 : 0, g: me.ground ? 1 : 0 };
-  const key = st.x + "," + st.y + "," + st.f + st.d + st.ex;
-  const now = performance.now();
-  if (force || (key !== lastSentKey && now - lastSend > 66) || now - lastSend > 600) { lastSend = now; lastSentKey = key; send(st); }
+  const now = performance.now(), r = sendRateHz();
+  sendTokens = Math.min(2, sendTokens + ((now - (lastTok || now)) / 1000) * r); lastTok = now;   // 토큰 통: 평균 r번/초를 절대 못 넘어요
+  const moving = !me.dead && (Math.abs(me.vx) > 0.05 || !me.ground || me.ride >= 0 || me.rideM >= 0);
+  const dk = (me.dir || 0) + "," + (me.jh ? 1 : 0) + "," + (me.jumps || 0) + "," + (me.dead ? 1 : 0) + "," + (me.ex ? 1 : 0);
+  const changed = dk !== lastDirKey;
+  const due = force || changed || (moving && now - lastSend > 1000 / r) || now - lastSend > 3000;
+  if (!due) return;
+  if (!force && sendTokens < 1) return;
+  sendTokens = Math.max(-1, sendTokens - 1);
+  lastSend = now; lastDirKey = dk;
+  send({ t: "st", id: myId, x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, vx: Math.round(me.vx * 100) / 100, vy: Math.round(me.vy * 100) / 100, f: me.f, dir: me.dir || 0, jh: me.jh ? 1 : 0, d: me.dead ? 1 : 0, ex: me.ex ? 1 : 0, g: me.ground ? 1 : 0 });
 }
 function step() {
   steps++;
-  for (const id in others) { const o = others[id]; o.rx = lerp(o.rx, o.x, 0.3); o.ry = lerp(o.ry, o.y, 0.3); }
+  stepOthers();
   for (const pt of particles) { pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.12; pt.life--; }
   particles = particles.filter((p) => p.life > 0);
   if (!L) return;
@@ -1006,7 +1220,7 @@ function showResult(m) {
   for (const p of parts) { if ((m.deaths[p.id] || 0) > 0 && (!mostDie || m.deaths[p.id] > m.deaths[mostDie.id])) mostDie = p; if ((m.gemsBy[p.id] || 0) > 0 && (!mostGem || m.gemsBy[p.id] > m.gemsBy[mostGem.id])) mostGem = p; }
   const host = isHost(), rand = L.idx === "R", hasNext = rand || L.idx < LEVELS.length - 1;
   $("resultBox").innerHTML = `<h2>🎉 탈출 성공!</h2><div class="stars">${"⭐".repeat(stars)}${"☆".repeat(3 - stars)}</div>
-    <div class="info">${esc(L.def.name)}<br>⏱ ${fmtTime(m.time)} (목표 ${fmtTime(par)} ${m.time <= par ? "✅" : "❌"}) · 💎 ${got}/${total} ${got === total ? "✅" : "❌"} · 💀 팀 전체 ${totalDeaths}번</div>
+    <div class="info">${esc(L.def.name)} · ${(DIFFS[L.diff] || DIFFS[1]).name}${L.dark ? " · 🌑" : ""}<br>⏱ ${fmtTime(m.time)} (목표 ${fmtTime(par)} ${m.time <= par ? "✅" : "❌"}) · 💎 ${got}/${total} ${got === total ? "✅" : "❌"} · 💀 팀 전체 ${totalDeaths}번</div>
     <ul>${mostGem ? `<li class="award"><span>💎</span><span class="nm">보석 수집왕: ${esc(mostGem.name)}</span><span>${m.gemsBy[mostGem.id]}개</span></li>` : ""}
     ${mostDie ? `<li class="award"><span>💀</span><span class="nm">희생정신상: ${esc(mostDie.name)}</span><span>${m.deaths[mostDie.id]}번</span></li>` : `<li class="award"><span>😇</span><span class="nm">아무도 안 죽었어요! 완벽한 팀워크</span></li>`}
     ${parts.map((p) => `<li><span>${p.team === "fire" ? "🔥" : "💧"}</span><span class="nm">${esc(p.name)}${p.id === myId ? " (나)" : ""}</span><span>💎${m.gemsBy[p.id] || 0} 💀${m.deaths[p.id] || 0}</span></li>`).join("")}</ul>` +
@@ -1150,6 +1364,34 @@ function drawMechs(t) {
     ctx.fillStyle = "#edf2f4"; ctx.fillRect(r.x + 3, r.y + 3, r.w - 6, 3);
     ctx.fillStyle = c.color; ctx.fillRect(r.x + 8, r.y + 10, r.w - 16, 4);
   }
+  // 🔒 자물쇠 문 표시
+  for (const gt of L.gates) { const c = L.chans[gt.ch]; if (c.t === "lock" && c.open < 0.5 && tileAt(gt.x, gt.y - 1) === "#") { ctx.font = "16px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("🔒", gt.x * T + T / 2, gt.y * T + 12); } }
+  // 분출구 (독가스 / 용암 분수 / 물대포)
+  for (const j of L.jets) {
+    const x = j.x * T, by = (j.y + 1) * T, top = (j.y - j.h + 1) * T;
+    const col = j.kind === "~" ? ["#4cc54c", "rgba(90,210,90,0.55)"] : j.kind === "L" ? ["#ff7b1c", "rgba(255,130,40,0.6)"] : ["#2f8fff", "rgba(80,160,255,0.55)"];
+    ctx.fillStyle = "#343a40"; ctx.fillRect(x + 3, by - 7, T - 6, 7); ctx.fillStyle = col[0]; ctx.fillRect(x + 6, by - 5, T - 12, 3);
+    if (j.active) {
+      ctx.fillStyle = col[1]; ctx.fillRect(x + 5, top, T - 10, by - top - 6);
+      ctx.fillStyle = col[0];
+      for (let k = 0; k < 6; k++) { const yy = by - 8 - ((t * 260 + k * 31) % (by - top - 8)); ctx.beginPath(); ctx.arc(x + T / 2 + Math.sin(t * 9 + k) * 4, yy, 3 + (k % 3), 0, 7); ctx.fill(); }
+    } else if (j.warn) { ctx.fillStyle = col[1]; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(x + T / 2 + (k - 1) * 5, by - 10 - Math.random() * 6, 2.5, 0, 7); ctx.fill(); } }
+  }
+  // 움직이는 발판
+  for (const mv of L.movers) {
+    const r = mv.rect;
+    ctx.fillStyle = "#6c5ce7"; roundRect(ctx, r.x, r.y, r.w, r.h, 5); ctx.fill();
+    ctx.fillStyle = "#a29bfe"; ctx.fillRect(r.x + 3, r.y + 2, r.w - 6, 3);
+    ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("◀ ▶", r.x + r.w / 2, r.y + 8);
+  }
+  // 🔑 열쇠
+  for (const k of L.keys) {
+    if (k.used) continue;
+    let kx = k.x * T + T / 2, ky = k.y * T + 12 + Math.sin(t * 3) * 3;
+    if (k.holder) { const h = k.holder === myId ? me : others[k.holder]; if (!h) continue; kx = (k.holder === myId ? h.x : h.rx) + PW / 2; ky = (k.holder === myId ? h.y : h.ry) - 44; }
+    else { ctx.fillStyle = k.el === "fire" ? "rgba(255,120,60,0.3)" : "rgba(80,160,255,0.3)"; ctx.beginPath(); ctx.arc(kx, ky, 13, 0, 7); ctx.fill(); }
+    ctx.font = "18px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("🔑", kx, ky);
+  }
   // 출구 문
   for (const d of L.doors) {
     const px = d.x * T - 6, py = d.y * T - T - 6, w = T + 12, h = 2 * T + 6;
@@ -1244,6 +1486,27 @@ function updateCam() {
   const tx = Math.max(0, Math.min(mx, tg.x - CW / 2)), ty = Math.max(0, Math.min(my, tg.y - CH * 0.55));
   if (camSnap) { camX = tx; camY = ty; camSnap = false; } else { camX = lerp(camX, tx, 0.12); camY = lerp(camY, ty, 0.12); }
 }
+// 🌑 어둠 모드: 불 팀 주변만 밝아요 (물 팀은 불 팀 친구 곁에 있어야 잘 보여요)
+const darkCv = document.createElement("canvas"); darkCv.width = CW; darkCv.height = CH;
+function drawDark(t) {
+  const g = darkCv.getContext("2d");
+  g.globalCompositeOperation = "source-over"; g.clearRect(0, 0, CW, CH);
+  g.fillStyle = "rgba(4,3,10,0.96)"; g.fillRect(0, 0, CW, CH);
+  g.globalCompositeOperation = "destination-out";
+  const hole = (x, y, r) => { const gr = g.createRadialGradient(x, y, r * 0.35, x, y, r); gr.addColorStop(0, "rgba(0,0,0,1)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); };
+  const flick = 1 + Math.sin(t * 7) * 0.03;
+  const lights = [];
+  if (me && !me.dead) lights.push({ x: me.x + PW / 2, y: me.y + PH / 2, fire: me.team === "fire" });
+  for (const id in others) { const o = others[id]; if (!o.dead && present[id]) lights.push({ x: o.rx + PW / 2, y: o.ry + PH / 2, fire: o.team === "fire" }); }
+  for (const l of lights) hole(l.x - camX, l.y - camY, (l.fire ? 150 : 48) * flick);
+  const x0 = Math.floor(camX / T), y0 = Math.floor(camY / T);
+  for (let y = y0; y < Math.min(L.H, y0 + ROWS + 2); y++) for (let x = x0; x < Math.min(L.W, x0 + COLS + 2); x++) if (L.grid[y][x] === "L") hole(x * T + 12 - camX, y * T - camY, 40);
+  for (const d of L.doors) hole(d.x * T + 12 - camX, d.y * T - camY, 34);
+  for (const gm of L.gems) if (!gemsTaken.has(gm.i)) hole(gm.x * T + 12 - camX, gm.y * T + 12 - camY, 18);
+  for (const k of L.keys) if (!k.used && !k.holder) hole(k.x * T + 12 - camX, k.y * T + 12 - camY, 24);
+  for (const j of L.jets) if (j.active || j.warn) hole(j.x * T + 12 - camX, (j.y - 1) * T - camY, 36);
+  ctx.drawImage(darkCv, 0, 0);
+}
 // 화면 밖에 있는 친구는 가장자리에 화살표로 알려 줘요
 function drawArrows() {
   if (phase !== "play") return;
@@ -1286,19 +1549,34 @@ function draw() {
   ctx.globalAlpha = 1;
   for (const pg of pings) {
     const k = (performance.now() - pg.at) / 2500; if (k > 1) continue;
-    const col = pg.el === "fire" ? "#ff8a3d" : pg.el === "water" ? "#4dabf7" : "#ffd43b";
+    const P = PINGS[pg.k] || PINGS.q, now = performance.now();
+    const col = P.col || (pg.el === "fire" ? "#ff8a3d" : pg.el === "water" ? "#4dabf7" : "#ffd43b");
     ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.globalAlpha = 1 - k;
     for (const off of [0, 0.35]) { const kk = (k * 2 + off) % 1; ctx.beginPath(); ctx.arc(pg.x, pg.y, 6 + kk * 22, 0, 7); ctx.stroke(); }
     ctx.globalAlpha = 1;
-    const bob = Math.sin(performance.now() / 120) * 2;
-    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(pg.x, pg.y - 26 + bob, 13, 0, 7); ctx.fill();
-    ctx.fillStyle = "#fff"; ctx.font = "bold 18px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", pg.x, pg.y - 25 + bob);
-    tag(pg.name, pg.x, pg.y - 50 + bob, "rgba(0,0,0,0.7)", "#fff");
+    const bob = Math.sin(now / 120) * 2, hx = pg.x, hy = pg.y - 26 + bob;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    if (pg.k === "danger") {          // 깜빡이는 빨간 세모
+      if (Math.floor(now / 160) % 2 === 0 || k > 0.5) {
+        ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(hx, hy - 15); ctx.lineTo(hx + 15, hy + 11); ctx.lineTo(hx - 15, hy + 11); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 17px sans-serif"; ctx.fillText("!", hx, hy + 2);
+      }
+    } else if (pg.k === "go") {       // 콩콩 뛰는 초록 화살표
+      const jump = Math.abs(Math.sin(now / 150)) * 8;
+      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(hx, pg.y - 6 - jump); ctx.lineTo(hx - 12, pg.y - 22 - jump); ctx.lineTo(hx - 5, pg.y - 22 - jump); ctx.lineTo(hx - 5, pg.y - 36 - jump); ctx.lineTo(hx + 5, pg.y - 36 - jump); ctx.lineTo(hx + 5, pg.y - 22 - jump); ctx.lineTo(hx + 12, pg.y - 22 - jump); ctx.closePath(); ctx.fill();
+    } else {                          // 동그라미 아이콘 (❓ / ✋ / 🙋)
+      const pulse = pg.k === "help" ? 1 + Math.sin(now / 90) * 0.12 : 1;
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(hx, hy, 13 * pulse, 0, 7); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = pg.k === "q" ? "bold 18px sans-serif" : "15px sans-serif"; ctx.fillText(P.icon, hx, hy + 1);
+    }
+    tag(`${pg.name}: ${P.label}`, pg.x, pg.y - 52 + bob, "rgba(0,0,0,0.72)", "#fff");
   }
   pings = pings.filter((p) => performance.now() - p.at < 2500);
   ctx.restore();
+  if (L.dark && phase === "play") drawDark(t);
   drawArrows();
   drawHUD(t);
+  drawWheel();
 }
 function drawHUD(t) {
   ctx.textBaseline = "middle";
@@ -1315,7 +1593,11 @@ function drawHUD(t) {
   panel(8, 30, 300, 26);
   ctx.textAlign = "left"; ctx.font = "bold 14px sans-serif"; ctx.fillStyle = "#fff";
   ctx.fillText(`⏱ ${fmtTime(el)}   🔴 ${fg.filter((g) => gemsTaken.has(g.i)).length}/${fg.length}   🔵 ${wg.filter((g) => gemsTaken.has(g.i)).length}/${wg.length}`, 18, 43);
-  ctx.font = "12px sans-serif"; ctx.fillStyle = "#ced4da"; ctx.textAlign = "right"; ctx.fillText(L.def.name, CW - 12, 43);
+  ctx.font = "12px sans-serif"; ctx.fillStyle = "#ced4da"; ctx.textAlign = "right"; ctx.fillText(`${(DIFFS[L.diff] || DIFFS[1]).name}${L.dark ? " · 🌑 어둠" : ""} · ${L.def.name}`, CW - 12, 43);
+  if (L.livesMax > 0) {
+    panel(316, 30, 170, 26); ctx.textAlign = "left"; ctx.font = "bold 14px sans-serif"; ctx.fillStyle = L.lives <= 2 ? "#ff8787" : "#fff";
+    ctx.fillText(`❤️ 팀 목숨 ${Math.max(0, L.lives)}/${L.livesMax}`, 326, 43);
+  }
   ctx.textAlign = "center";
   feed.forEach((f, i) => {
     const age = (performance.now() - f.at) / 4000; if (age > 1) return;

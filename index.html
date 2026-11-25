@@ -97,9 +97,11 @@
     <button id="enterBtn" class="blue">입장하기</button>
   </div>
   <button id="watchBtn" class="watchbtn">👀 보기만 할래요 (관전으로 입장)</button>
+  <p style="text-align:center;color:#aaa;font-size:12px;margin:12px 0 0">게임 버전 <span id="verTxt"></span> · 친구와 버전이 같아야 해요</p>
 </section>
 
 <section id="game" class="hidden">
+  <div id="verWarn" class="hidden" style="background:#ffe3e3;color:#c92a2a;border:2px solid #ff8787;border-radius:14px;padding:10px 16px;margin-bottom:8px;font-size:15px;line-height:1.6"></div>
   <div class="topbar card">
     <div><span class="roomchip">방 <span id="roomCode"></span></span><button id="copyBtn" class="copy">🔗 초대 링크 복사</button></div>
     <div id="status"></div>
@@ -160,6 +162,8 @@
 const SUPABASE_URL = "https://ejwoofgujgnmeixwispl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqd29vZmd1amdubWVpeHdpc3BsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwNDQ0NzUsImV4cCI6MjEwOTYyMDQ3NX0.P49zFX3Dk6rB0-bGJex94khJER4g517lXAhqruUbTk8";
 
+// 파일을 고칠 때마다 이 번호를 바꿔요. 친구와 번호가 다르면(옛날 파일이 캐시에 남아 있으면) 맵이 서로 달라져서 경고를 띄워요.
+const GAME_VERSION = "v4-1125";
 const MIN_PLAYERS = 2, MAX_PLAYERS = 6;
 const T = 24, COLS = 40, ROWS = 23, CW = 960, CH = 552;
 const GRAV = 0.55, JUMP = 9.4, MAXV = 2.7, MAXFALL = 10;
@@ -506,7 +510,7 @@ const countingDown = () => phase === "play" && (performance.now() - startAt) / 1
 
 // ===================== 통신 (Supabase 또는 테스트 모드) =====================
 function sysMsg(t) { const d = document.createElement("div"); d.className = "sys"; d.textContent = t; $("log").appendChild(d); $("log").scrollTop = 1e9; }
-function presencePayload() { return { name: myName, joinedAt, spec: mySpec, tm: myTeam }; }
+function presencePayload() { return { name: myName, joinedAt, spec: mySpec, tm: myTeam, v: GAME_VERSION }; }
 function makeSupabaseNet(rm) {
   const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const ch = client.channel("firewater-" + rm, { config: { broadcast: { self: false }, presence: { key: myId } } });
@@ -514,7 +518,7 @@ function makeSupabaseNet(rm) {
   ch.on("broadcast", { event: "m" }, ({ payload }) => api.msgFn && api.msgFn(payload));
   ch.on("presence", { event: "sync" }, () => {
     const st = ch.presenceState(), list = {};
-    for (const id in st) { const p = st[id][st[id].length - 1]; if (p) list[id] = { name: p.name, joinedAt: p.joinedAt, spec: !!p.spec, tm: p.tm || "any" }; }
+    for (const id in st) { const p = st[id][st[id].length - 1]; if (p) list[id] = { name: p.name, joinedAt: p.joinedAt, spec: !!p.spec, tm: p.tm || "any", v: p.v || "옛날 버전" }; }
     api.presFn && api.presFn(list);
   });
   ch.subscribe(async (status) => {
@@ -536,7 +540,7 @@ function makeLocalNet(rm) {
   };
   bc.onmessage = (e) => {
     const m = e.data;
-    if (m.__ping) { const isNew = !seen[m.p.id]; seen[m.p.id] = { p: { name: m.p.name, joinedAt: m.p.joinedAt, spec: m.p.spec, tm: m.p.tm }, t: Date.now() }; if (isNew) bc.postMessage({ __ping: 1, p: meP() }); emitPres(); return; }
+    if (m.__ping) { const isNew = !seen[m.p.id]; seen[m.p.id] = { p: { name: m.p.name, joinedAt: m.p.joinedAt, spec: m.p.spec, tm: m.p.tm, v: m.p.v || "옛날 버전" }, t: Date.now() }; if (isNew) bc.postMessage({ __ping: 1, p: meP() }); emitPres(); return; }
     if (m.__bye) { delete seen[m.id]; emitPres(); return; }
     api.msgFn && api.msgFn(m);
   };
@@ -581,6 +585,16 @@ const isHost = () => hostId() === myId;
 const lobbyPlayers = () => sortedIds().filter((id) => !present[id].spec).slice(0, MAX_PLAYERS);
 const livePlayers = () => parts.filter((p) => present[p.id]);
 
+const versionBad = () => Object.keys(present).filter((id) => present[id].v && present[id].v !== GAME_VERSION);
+let lastVerWarn = "";
+function checkVersions() {
+  const bad = versionBad(), el = $("verWarn");
+  if (!bad.length) { el.classList.add("hidden"); lastVerWarn = ""; return; }
+  const names = bad.map((id) => present[id].name).join(", ");
+  el.innerHTML = `⚠️ 게임 파일 버전이 다른 사람이 있어요: <b>${esc(names)}</b> — 이대로 하면 맵이 서로 달라서 다 날아다녀요!<br>모두 <b>Ctrl + Shift + R</b> (맥: <b>Cmd + Shift + R</b>)로 강력 새로고침해 주세요. (내 버전: ${GAME_VERSION})`;
+  el.classList.remove("hidden");
+  if (names !== lastVerWarn) { lastVerWarn = names; sysMsg(`⚠️ 버전 다름: ${names} → 강력 새로고침(Ctrl+Shift+R) 필요`); }
+}
 function onPresence(list) {
   const before = knownIds;
   present = list; knownIds = new Set(Object.keys(list));
@@ -590,7 +604,7 @@ function onPresence(list) {
     if (phase === "play") { for (const id of knownIds) if (!before.has(id) && id !== myId) send(syncMsg(id)); }
     else if (phase === "lobby") send({ t: "cfg", lvl: cfgLvl, shape: cfgShape });
   }
-  renderPlayers(); renderLobbyBar();
+  renderPlayers(); renderLobbyBar(); checkVersions();
 }
 function syncMsg(to) {
   const lev = {}, lat = [];
@@ -604,7 +618,7 @@ function handle(m) {
   switch (m.t) {
     case "chat": { if (m.id) bubbles[m.id] = { text: m.text, at: performance.now() }; const d = document.createElement("div"); d.innerHTML = `<b>${esc(m.name)}</b> ${esc(m.text)}`; $("log").appendChild(d); $("log").scrollTop = 1e9; return; }
     case "cfg": cfgLvl = m.lvl; if (m.shape) cfgShape = m.shape; if (phase === "lobby") loadLevel(previewDef()); renderLobbyBar(); return;
-    case "start": startLevel(m); return;
+    case "start": if (m.v && m.v !== GAME_VERSION) { sysMsg(`⚠️ 방장 버전(${m.v})과 내 버전(${GAME_VERSION})이 달라요! Ctrl+Shift+R로 새로고침해 주세요.`); toast("버전이 달라요! Ctrl+Shift+R 새로고침"); } startLevel(m); return;
     case "sync": if (m.to === myId && phase !== "play") { startLevel({ lvl: m.lvl, seed: m.seed, shape: m.shape, parts: m.parts }); applySync(m); sysMsg("게임이 진행 중이라 이번 스테이지는 관전해요. 다음 스테이지부터 같이 해요!"); } return;
     case "st": {
       const o = others[m.id]; if (!o) return;
@@ -638,6 +652,7 @@ function handle(m) {
       renderPlayers(); return;
     }
     case "wopen": { const c = L && L.chans[m.ch]; if (c) { if (performance.now() > c.timerEnd) pushFeed("⚖️ 무게 발판 성공! 문이 5초 열려요 — 다 같이 뛰어!"); c.timerEnd = performance.now() + 5000; } return; }
+    case "crumb": { const cr = L && L.crumbles[m.i]; if (cr && !cr.touched && !cr.gone) cr.touched = performance.now(); return; }
     case "pass": { const c = L && L.chans[m.ch]; if (c) c.passed = true; return; }
     case "emo": emos[m.id] = { e: m.e, at: performance.now() }; return;
     case "ping": pings.push({ x: m.x, y: m.y, name: m.name, el: m.el, at: performance.now() }); if (pings.length > 8) pings.shift(); return;
@@ -713,9 +728,10 @@ function makeTeams(ids) {
   return res;
 }
 function hostStart(lvl, keepSeed) {
+  if (versionBad().length) return toast("버전이 다른 친구가 있어서 시작할 수 없어요. 모두 Ctrl+Shift+R 새로고침!");
   const ids = lobbyPlayers();
   if (ids.length < MIN_PLAYERS) return toast(`최소 ${MIN_PLAYERS}명이 있어야 해요! 친구를 불러 주세요 🙏`);
-  const msg = { t: "start", lvl, parts: makeTeams(ids) };
+  const msg = { t: "start", v: GAME_VERSION, lvl, parts: makeTeams(ids) };
   if (lvl === "R") {
     msg.seed = keepSeed ? L.def.seed : Math.floor(Math.random() * 1e9);
     msg.shape = keepSeed ? L.def.shape : cfgShape === "any" ? Object.keys(SHAPES)[Math.floor(Math.random() * 4)] : cfgShape;
@@ -867,7 +883,7 @@ function updateChannels() {
   for (const cr of L.crumbles) {
     const rr = { x: cr.x * T, y: cr.y * T, w: T, h: T };
     if (cr.gone) { if (now - cr.goneAt > 3500 && !bodies.some((b) => ov(b, rr))) { cr.gone = false; cr.touched = 0; } continue; }
-    if (!cr.touched && bodies.some((b) => b.y + b.h >= cr.y * T - 2 && b.y + b.h <= cr.y * T + 3 && b.x + b.w > cr.x * T && b.x < cr.x * T + T)) cr.touched = now;
+    if (!cr.touched && me && !me.dead && me.y + PH >= cr.y * T - 2 && me.y + PH <= cr.y * T + 3 && me.x + PW > cr.x * T && me.x < cr.x * T + T) emit({ t: "crumb", i: L.crumbles.indexOf(cr) });
     if (cr.touched && now - cr.touched > 450) { cr.gone = true; cr.goneAt = now; }
   }
 }
@@ -1363,6 +1379,7 @@ function frame(now) {
   try { while (acc >= 1000 / 60) { step(); acc -= 1000 / 60; } draw(); } catch (e) { console.error(e); }
   requestAnimationFrame(frame);
 }
+$("verTxt").textContent = GAME_VERSION;
 loadLevel(0);
 fitCanvas();
 requestAnimationFrame(frame);

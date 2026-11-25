@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>불물 대탈출</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: linear-gradient(180deg, #2b1d3a 0%, #13283d 100%); color: #333; min-height: 100vh; }
+  .hidden { display: none !important; }
+  .card { background: #fff; border-radius: 18px; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); }
+  button { font-family: inherit; font-size: 15px; border: 0; border-radius: 12px; padding: 10px 16px; cursor: pointer; background: #eef3f8; color: #333; font-weight: 700; transition: transform .08s; }
+  button:hover { transform: translateY(-1px); }
+  button.primary { background: #ff8a3d; color: #fff; box-shadow: 0 4px 0 #d9601a; }
+  button.blue { background: #3fa9f5; color: #fff; box-shadow: 0 4px 0 #1f7fc4; }
+  button.green { background: #51cf66; color: #fff; box-shadow: 0 4px 0 #2f9e44; }
+  button:disabled { opacity: .45; cursor: default; transform: none; }
+  input { font-family: inherit; font-size: 16px; padding: 10px 12px; border: 2px solid #dde6ee; border-radius: 12px; width: 100%; outline: none; }
+  input:focus { border-color: #ff8a3d; }
+
+  #join { max-width: 440px; margin: 50px auto; padding: 28px; }
+  #join h1 { margin: 0 0 4px; font-size: 34px; text-align: center; }
+  #join h1 .f { color: #ff6b2c; } #join h1 .w { color: #2f8fff; }
+  #join .sub { text-align: center; color: #777; margin: 0 0 18px; }
+  #join label { display: block; font-weight: 700; margin: 12px 0 6px; }
+  .joinhelp { font-size: 13px; color: #888; margin: 8px 0 14px; line-height: 1.5; }
+  .row { display: flex; gap: 10px; }
+  .row button { flex: 1; }
+  .watchbtn { width: 100%; margin-top: 10px; background: #f1f3f5; }
+
+  #game { max-width: 1500px; margin: 0 auto; padding: 12px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; margin-bottom: 12px; gap: 10px; }
+  .roomchip { background: #ffe8d6; padding: 6px 12px; border-radius: 10px; font-weight: 800; }
+  .topbar .copy { padding: 6px 12px; font-size: 14px; margin-left: 6px; }
+  #status { font-weight: 800; font-size: 17px; text-align: center; flex: 1; }
+  #restartBtn { padding: 6px 12px; font-size: 14px; }
+  .layout { display: grid; grid-template-columns: 210px 1fr 250px; gap: 12px; align-items: start; }
+  .panel-title { font-weight: 800; padding: 12px 14px 6px; }
+  #players { list-style: none; margin: 0; padding: 4px 10px 12px; }
+  #players li { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 10px; margin-bottom: 4px; background: #f8fafc; font-size: 14px; }
+  #players li.me { outline: 2px solid #ffc078; }
+  #players li.fire { background: #fff0e6; }
+  #players li.water { background: #e7f3ff; }
+  #players .nm { flex: 1; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #players .st { font-size: 12px; color: #666; white-space: nowrap; }
+  .speclist { font-size: 13px; color: #888; padding: 0 14px 12px; }
+  .stagecard { padding: 10px; }
+  canvas#board { width: 100%; display: block; border-radius: 12px; background: #1d1a24; cursor: crosshair; }
+  #lobbyBar { padding: 10px 4px 2px; }
+  #lobbyBar h3 { margin: 4px 0 8px; font-size: 16px; }
+  .lobbyrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .lobbyrow .grow { flex: 1; }
+  .teampick button.sel, .lvlpick button.sel { outline: 3px solid #333; }
+  .lvlpick button { font-size: 14px; padding: 8px 12px; }
+  .hostnote { font-size: 13px; color: #888; margin-top: 6px; }
+  .keys { font-size: 13px; color: #555; margin-top: 10px; line-height: 1.7; background: #f8f9fa; border-radius: 10px; padding: 8px 12px; }
+  .chatbox { display: flex; flex-direction: column; height: 600px; }
+  #log { flex: 1; overflow-y: auto; padding: 4px 14px; font-size: 14px; line-height: 1.5; }
+  #log .sys { color: #868e96; font-size: 13px; }
+  #log b { color: #e8590c; }
+  .chatform { display: flex; gap: 6px; padding: 10px; }
+  .chatform input { font-size: 14px; padding: 8px 10px; }
+  .chatform button { padding: 8px 12px; }
+
+  #result { position: fixed; inset: 0; background: rgba(10, 10, 25, .55); display: flex; align-items: center; justify-content: center; z-index: 10; }
+  #result .box { width: 460px; padding: 24px; text-align: center; }
+  #result h2 { margin: 0 0 6px; font-size: 26px; }
+  #result .stars { font-size: 40px; letter-spacing: 6px; margin: 4px 0 10px; }
+  #result .info { color: #555; margin-bottom: 12px; line-height: 1.6; }
+  #result ul { list-style: none; padding: 0; margin: 0 0 14px; text-align: left; }
+  #result li { display: flex; gap: 8px; padding: 7px 10px; border-radius: 10px; background: #f8fafc; margin-bottom: 5px; font-weight: 700; }
+  #result li .nm { flex: 1; }
+  #result .award { background: #fff3bf; }
+  #result .btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  #toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 18px; border-radius: 12px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 20; }
+  #toast.show { opacity: .92; }
+  @media (max-width: 1150px) { .layout { grid-template-columns: 1fr; } .chatbox { height: 280px; } }
+</style>
+</head>
+<body>
+
+<section id="join" class="card">
+  <h1><span class="f">🔥불</span><span class="w">물💧</span> 대탈출</h1>
+  <p class="sub">불 팀과 물 팀이 힘을 모아 신전을 탈출해요! (2~6명)</p>
+  <label for="nameInput">닉네임</label>
+  <input id="nameInput" maxlength="10" placeholder="예: 세훈">
+  <label for="roomInput">방 번호 (영어·숫자 2~12자)</label>
+  <input id="roomInput" maxlength="12" placeholder="예: 1234, sehun">
+  <p class="joinhelp">만들 때는 원하는 번호를 정하고, 들어갈 때는 친구가 알려준 번호를 넣어요.<br>비워 두고 방 만들기를 누르면 번호가 자동으로 정해져요.</p>
+  <div class="row">
+    <button id="createBtn" class="primary">방 만들기</button>
+    <button id="enterBtn" class="blue">입장하기</button>
+  </div>
+  <button id="watchBtn" class="watchbtn">👀 보기만 할래요 (관전으로 입장)</button>
+</section>
+
+<section id="game" class="hidden">
+  <div class="topbar card">
+    <div><span class="roomchip">방 <span id="roomCode"></span></span><button id="copyBtn" class="copy">🔗 초대 링크 복사</button></div>
+    <div id="status"></div>
+    <div><button id="restartBtn" class="hidden">🔄 스테이지 처음부터</button></div>
+  </div>
+  <div class="layout">
+    <div class="card">
+      <div class="panel-title">🧑‍🤝‍🧑 탐험대</div>
+      <ul id="players"></ul>
+      <div id="specList" class="speclist"></div>
+    </div>
+    <div class="card stagecard">
+      <canvas id="board" width="960" height="552"></canvas>
+      <div id="lobbyBar">
+        <div class="lobbyrow teampick">
+          <span style="font-weight:800">내 팀:</span>
+          <button data-tm="fire" class="primary">🔥 불 팀</button>
+          <button data-tm="water" class="blue">💧 물 팀</button>
+          <button data-tm="any">🎲 아무거나</button>
+          <span class="grow"></span>
+          <button id="specToggle">👀 관전하기</button>
+        </div>
+        <div class="lobbyrow lvlpick" id="lvlPick"><span style="font-weight:800">스테이지:</span></div>
+        <div class="lobbyrow lvlpick hidden" id="shapePick"><span style="font-weight:800">🎲 신전 모양:</span></div>
+        <div class="lobbyrow">
+          <span id="hostNote" class="hostnote grow"></span>
+          <button id="startBtn" class="green">▶ 탈출 시작!</button>
+        </div>
+        <div class="keys">
+          조작: <b>← →</b> 또는 <b>A D</b> 이동 · <b>↑ / W / Space</b> 점프 · <b>↓ / S</b> 레버 당기기<br>
+          🔥 불은 <b style="color:#e8590c">용암</b>, 💧 물은 <b style="color:#1c7ed6">물</b>만 밟을 수 있어요 · <b style="color:#2f9e44">초록 독물</b>은 둘 다 위험!<br>
+          🟡 발판은 누가 밟고 있는 동안만 문이 열려요 · 🟣 <b>전원 집합 발판</b>은 모두가 올라가야 열려요(체크포인트!)<br>
+          🔴 불 전용 · 🔵 물 전용 발판 · 🧊 얼음은 미끄러워요 · 💎 내 색깔 보석만 먹을 수 있어요<br>
+          <b>1~4</b> 신호 보내기(여기!/기다려!/고고!/ㅋㅋㅋ) · 화면 <b>클릭</b> = 위치 찍어 알려주기 · <b>Enter</b> 채팅
+        </div>
+      </div>
+    </div>
+    <div class="card chatbox">
+      <div class="panel-title">💬 채팅</div>
+      <div id="log"></div>
+      <form id="chatForm" class="chatform">
+        <input id="chatInput" maxlength="40" autocomplete="off" placeholder="채팅 입력 (Enter)">
+        <button class="primary">보내기</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<div id="result" class="hidden"><div class="box card" id="resultBox"></div></div>
+<div id="toast"></div>
+
+<script>
+// ===================== 설정 =====================
+// Supabase 대시보드 → Project Settings → API 에서 복사 (anon/publishable 키만! secret 키 금지)
+// 주소 뒤에 ?local=1 을 붙이면 "테스트 모드"(같은 브라우저의 탭끼리만 연결)로 동작해요.
+const SUPABASE_URL = "https://ejwoofgujgnmeixwispl.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqd29vZmd1amdubWVpeHdpc3BsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwNDQ0NzUsImV4cCI6MjEwOTYyMDQ3NX0.P49zFX3Dk6rB0-bGJex94khJER4g517lXAhqruUbTk8";
+
+const MIN_PLAYERS = 2, MAX_PLAYERS = 6;
+const T = 24, COLS = 40, ROWS = 23, CW = 960, CH = 552;
+const GRAV = 0.55, JUMP = 9.4, MAXV = 2.7, MAXFALL = 10;
+const PW = 16, PH = 22;
+const COUNTDOWN = 3;
+const EMOTES = ["👇 여기!", "✋ 기다려!", "🏃 고고!", "😂 ㅋㅋㅋ"];
+const FIRE_COLS = ["#ff6b2c", "#ffa41b", "#ff4d6d"];
+const WATER_COLS = ["#2f8fff", "#22c3b5", "#7b6cff"];
+const CH_COLORS = ["#ffd43b", "#69db7c", "#ff922b", "#63e6be", "#f783ac", "#a9e34b"];
+
+// ===================== 스테이지 =====================
+// 글자 뜻: # 돌벽  I 얼음  L 용암  W 물  ~ 독물  r 빨간보석  b 파란보석  R 불 출구  B 물 출구  S 출발점
+// 소문자 = 발판/레버, 대문자 = 그 글자의 문 (예: a 발판을 밟으면 A 문이 열림)
+function mkGrid(W = COLS, H = ROWS) {
+  const g = [];
+  for (let y = 0; y < H; y++) g.push(Array(W).fill("."));
+  for (let x = 0; x < W; x++) { g[0][x] = "#"; g[H - 1][x] = "#"; }
+  for (let y = 0; y < H; y++) { g[y][0] = "#"; g[y][W - 1] = "#"; }
+  return g;
+}
+const F = (g, x1, y1, x2, y2, c = "#") => { for (let y = y1; y <= y2; y++) for (let x = x1; x <= x2; x++) g[y][x] = c; };
+const P = (g, x, y, c) => { g[y][x] = c; };
+
+const LEVELS = [
+  {
+    name: "1. 첫 만남의 신전", par: 100,
+    tip: "발판을 밟고 있는 동안 문이 열려요. 한 명이 잡아주고, 건너간 친구가 반대편 발판을 밟아 줘요!",
+    ch: { a: { t: "plate" }, g: { t: "group" } }, elev: [],
+    build(g) {
+      F(g, 1, 21, 38, 21); F(g, 1, 14, 33, 14); F(g, 6, 7, 38, 7);
+      // 오른쪽 오르막 발판 / 왼쪽 오르막 발판
+      F(g, 34, 19, 35, 19); F(g, 37, 17, 38, 17); F(g, 34, 15, 35, 15);
+      F(g, 4, 12, 5, 12); F(g, 1, 10, 2, 10); F(g, 4, 8, 5, 8);
+      // 1층
+      P(g, 2, 20, "S"); P(g, 3, 20, "S"); P(g, 4, 20, "S");
+      F(g, 8, 21, 9, 21, "L"); P(g, 9, 20, "r");
+      F(g, 13, 21, 14, 21, "W"); P(g, 14, 20, "b");
+      F(g, 18, 21, 19, 21, "~");
+      F(g, 26, 15, 26, 20, "A"); P(g, 23, 20, "a"); P(g, 29, 20, "a");
+      // 2층 (왼쪽으로)
+      F(g, 27, 14, 28, 14, "L"); P(g, 27, 13, "r");
+      F(g, 21, 14, 22, 14, "W"); P(g, 21, 13, "b");
+      F(g, 15, 14, 16, 14, "W"); F(g, 17, 14, 18, 14, "L");
+      F(g, 10, 13, 13, 13, "g"); F(g, 8, 8, 8, 13, "G");
+      // 3층 (오른쪽으로)
+      P(g, 12, 6, "r"); P(g, 14, 6, "b");
+      F(g, 18, 7, 19, 7, "~");
+      F(g, 23, 7, 24, 7, "L"); P(g, 24, 6, "r");
+      F(g, 27, 7, 28, 7, "W"); P(g, 28, 6, "b");
+      P(g, 33, 6, "R"); P(g, 36, 6, "B");
+    },
+  },
+  {
+    name: "2. 엘리베이터 대작전", par: 150,
+    tip: "엘리베이터는 발판으로 움직여요. 위층 길은 불 길·물 길로 갈라지니, 서로의 문을 열어 줘야 해요!",
+    ch: { a: { t: "plate" }, e: { t: "plate" }, f: { t: "plate" }, g: { t: "group" }, h: { t: "plate", only: "fire" }, j: { t: "plate", only: "water" } },
+    elev: [{ ch: "e", x: 35, y: 20, w: 4, dy: -6 }, { ch: "f", x: 1, y: 13, w: 4, dy: -6 }],
+    build(g) {
+      F(g, 1, 21, 38, 21); F(g, 1, 14, 34, 14); F(g, 5, 7, 38, 7);
+      P(g, 2, 20, "S"); P(g, 3, 20, "S"); P(g, 4, 20, "S");
+      F(g, 7, 21, 8, 21, "L"); P(g, 8, 20, "r");
+      F(g, 11, 21, 12, 21, "W"); P(g, 12, 20, "b");
+      F(g, 20, 15, 20, 20, "A"); P(g, 17, 20, "a"); P(g, 23, 20, "a");
+      F(g, 27, 21, 28, 21, "~");
+      P(g, 32, 20, "e"); P(g, 31, 13, "e");
+      F(g, 27, 14, 28, 14, "L"); P(g, 27, 13, "r");
+      F(g, 22, 14, 23, 14, "W"); P(g, 22, 13, "b");
+      F(g, 10, 13, 13, 13, "g"); F(g, 8, 8, 8, 13, "G");
+      P(g, 6, 13, "f"); P(g, 6, 6, "f");
+      // 3층: 위는 불 길(용암), 아래는 물 길(물)
+      F(g, 10, 5, 11, 6); F(g, 12, 3, 30, 3);
+      F(g, 16, 3, 22, 3, "L"); F(g, 16, 7, 22, 7, "W");
+      P(g, 19, 2, "r"); P(g, 28, 2, "r"); P(g, 19, 6, "b"); P(g, 28, 6, "b");
+      P(g, 14, 6, "j"); F(g, 25, 1, 25, 2, "J");
+      P(g, 27, 2, "h"); F(g, 25, 4, 25, 6, "H");
+      P(g, 33, 6, "R"); P(g, 36, 6, "B");
+    },
+  },
+  {
+    name: "3. 미끄러운 얼음 동굴", par: 150,
+    tip: "얼음 위에서는 쭉 미끄러져요! 레버는 ↓(S)로 당겨요. 누가 다시 닫으면…? 😈",
+    ch: { k: { t: "lever" }, g: { t: "group" }, c: { t: "plate" } }, elev: [],
+    build(g) {
+      F(g, 1, 21, 38, 21); F(g, 1, 14, 33, 14); F(g, 6, 7, 38, 7);
+      F(g, 34, 19, 35, 19); F(g, 37, 17, 38, 17); F(g, 34, 15, 35, 15);
+      F(g, 4, 12, 5, 12); F(g, 1, 10, 2, 10); F(g, 4, 8, 5, 8);
+      P(g, 2, 20, "S"); P(g, 3, 20, "S"); P(g, 4, 20, "S");
+      F(g, 6, 21, 17, 21, "I"); P(g, 10, 20, "r"); P(g, 14, 20, "b");
+      F(g, 18, 21, 19, 21, "~");
+      P(g, 22, 20, "k"); F(g, 26, 15, 26, 20, "K");
+      F(g, 27, 21, 33, 21, "I");
+      F(g, 14, 14, 26, 14, "I");
+      F(g, 27, 14, 28, 14, "L"); P(g, 27, 13, "r");
+      F(g, 20, 14, 21, 14, "W"); P(g, 20, 13, "b");
+      F(g, 10, 13, 13, 13, "g"); F(g, 8, 8, 8, 13, "G");
+      F(g, 8, 7, 20, 7, "I"); P(g, 12, 6, "r"); P(g, 16, 6, "b");
+      F(g, 24, 1, 24, 6, "C"); P(g, 21, 6, "c"); P(g, 27, 6, "c");
+      F(g, 29, 7, 30, 7, "L"); P(g, 29, 6, "r");
+      F(g, 31, 7, 32, 7, "W"); P(g, 32, 6, "b");
+      P(g, 34, 6, "R"); P(g, 37, 6, "B");
+    },
+  },
+  {
+    name: "4. 전원 집합 대작전", par: 220,
+    tip: "체크포인트가 두 개! 전원이 모여야 열리는 발판, 엘리베이터, 불 길·물 길이 다 나와요. 최종 시험!",
+    ch: { g: { t: "group" }, n: { t: "group" }, e: { t: "plate" }, f: { t: "plate" }, h: { t: "plate", only: "fire" }, j: { t: "plate", only: "water" }, c: { t: "plate" } },
+    elev: [{ ch: "e", x: 35, y: 20, w: 4, dy: -6 }, { ch: "f", x: 1, y: 13, w: 4, dy: -6 }],
+    build(g) {
+      F(g, 1, 21, 38, 21); F(g, 1, 14, 34, 14); F(g, 5, 7, 38, 7);
+      P(g, 2, 20, "S"); P(g, 3, 20, "S"); P(g, 4, 20, "S");
+      F(g, 8, 20, 11, 20, "g"); F(g, 14, 15, 14, 20, "G");
+      F(g, 17, 21, 18, 21, "L"); P(g, 18, 20, "r");
+      F(g, 20, 21, 21, 21, "W"); P(g, 21, 20, "b");
+      F(g, 24, 21, 25, 21, "~");
+      P(g, 32, 20, "e"); P(g, 33, 13, "e");
+      // 2층: 위 길(불, 용암) / 아래 길(물, 물)
+      F(g, 31, 12, 32, 13); F(g, 12, 10, 30, 10);
+      F(g, 16, 10, 24, 10, "L"); F(g, 16, 14, 24, 14, "W");
+      P(g, 20, 9, "r"); P(g, 20, 13, "b");
+      P(g, 27, 13, "j"); F(g, 14, 8, 14, 9, "J");
+      P(g, 12, 9, "h"); F(g, 14, 11, 14, 13, "H");
+      F(g, 7, 13, 10, 13, "n"); F(g, 6, 8, 6, 13, "N");
+      P(g, 5, 13, "f"); P(g, 6, 6, "f");
+      // 3층
+      F(g, 12, 7, 13, 7, "~"); P(g, 15, 6, "r");
+      F(g, 20, 1, 20, 6, "C"); P(g, 17, 6, "c"); P(g, 23, 6, "c");
+      F(g, 26, 7, 27, 7, "W"); P(g, 26, 6, "b");
+      F(g, 28, 7, 29, 7, "L"); P(g, 29, 6, "r");
+      P(g, 31, 6, "b");
+      P(g, 33, 6, "R"); P(g, 36, 6, "B");
+    },
+  },
+];
+
+
+// ===================== 🎲 랜덤 신전 만들기 =====================
+// "레고 조각" 방식: 직접 설계한 방 조각을 씨앗 번호(seed)로 골라 이어 붙이고,
+// 조각 안의 "빈칸"(문 여는 방법·위험물 종류·불길/물길 방향·보석 위치)도 랜덤으로 채워요.
+// 씨앗 번호가 같으면 누구 컴퓨터에서든 똑같은 맵이 나와요.
+const SHAPES = { up: "⬆️ 오르기", down: "⬇️ 내려가기", side: "➡️ 옆으로 긴 길", split: "🔀 갈라졌다 만나기" };
+function mulberry32(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const SEG_W = { start: 6, exit: 8, pool: 8, pool2: 10, gate: 12, ice: 16, gems: 10, lane: 20, climbLedge: 8, climbElev: 8, drop: 8, stepUp: 4, stepDown: 4 };
+function makeRandomDef(seed, shape) {
+  const rng = mulberry32(seed);
+  const ri = (a, b) => a + Math.floor(rng() * (b - a + 1)), pick = (arr) => arr[Math.floor(rng() * arr.length)];
+  const other = (e) => (e === "fire" ? "water" : "fire"), liq = (e) => (e === "fire" ? "L" : "W"), gemC = (e) => (e === "fire" ? "r" : "b");
+  const elem = () => (rng() < 0.5 ? "fire" : "water");
+  const chPool = "acdefghjkmnopqtuvxyz".split(""), ch = {};
+  const newCh = (spec) => { const k = chPool.shift(); ch[k] = spec; return k; };
+
+  // ---- 1) 설계도 만들기 ----
+  const plan = [{ type: "start" }];
+  const N = shape === "side" ? 9 : 7;
+  let lastType = "";
+  const challengeTypes = ["pool", "pool", "pool2", "gate:pair", "gate:elem", "gate:lever", "ice", "gems", "lane"];
+  for (let i = 0; i < N; i++) {
+    let t;
+    if (shape === "split" && i % 2 === 0) t = "lane";
+    else { do t = pick(challengeTypes); while (t === lastType || (t === "lane" && i === 0)); }
+    lastType = t;
+    if (t.startsWith("gate:")) plan.push({ type: "gate", v: t.slice(5) }); else plan.push({ type: t });
+    if (i === Math.floor(N / 2) - 1 || (N > 8 && i === N - 3)) plan.push({ type: "gate", v: "group" });
+    if (i < N - 1) {
+      if (shape === "up") plan.push({ type: rng() < 0.5 ? "climbElev" : "climbLedge" });
+      else if (shape === "down") plan.push({ type: "drop" });
+      else if (rng() < 0.3) plan.push({ type: rng() < 0.5 ? "stepUp" : "stepDown" });
+    }
+  }
+  plan.push({ type: "exit" });
+
+  // ---- 2) 빈칸 채우기 + 높이 계산 ----
+  let f = 0, minF = 0, maxF = 0;
+  for (const it of plan) {
+    it.w = SEG_W[it.type]; it.f = f;
+    if (it.type === "pool") { it.liq = pick(["L", "W", "~"]); it.ge = elem(); }
+    if (it.type === "pool2") { it.a = elem(); }
+    if (it.type === "gate") {
+      it.gk = newCh(it.v === "group" ? { t: "group" } : it.v === "lever" ? { t: "lever" } : it.v === "elem" ? { t: "plate", only: (it.ea = elem()) } : { t: "plate" });
+      if (it.v === "elem") it.gk2 = newCh({ t: "plate", only: other(it.ea), link: it.gk });
+      it.ge = elem(); it.gemOn = rng() < 0.6;
+    }
+    if (it.type === "lane") { it.a = elem(); it.cu = newCh({ t: "plate", only: other(it.a) }); it.cv = newCh({ t: "plate", only: it.a }); }
+    if (it.type === "climbElev") it.ek = newCh({ t: "plate" });
+    if (it.type === "ice") it.ge = elem();
+    if (it.type === "gems") { it.e1 = elem(); it.e2 = other(it.e1); }
+    if (it.type === "drop") { it.d = ri(4, 7); it.pool = rng() < 0.5 ? elem() : null; it.ge = elem(); }
+    const dF = { climbLedge: -6, climbElev: -6, drop: it.d || 0, stepUp: -2, stepDown: 2 }[it.type] || 0;
+    f += dF; it.fOut = f; minF = Math.min(minF, f); maxF = Math.max(maxF, f);
+  }
+  const span = maxF - minF, H = Math.max(ROWS, span + 14), off = H - 3 - maxF;
+  const W = 2 + plan.reduce((a, it) => a + it.w, 0);
+  const nSeg = plan.length - 2;
+  const def = {
+    random: true, seed, shape, W, H, ch, elev: [], par: 30 + nSeg * 22,
+    name: `🎲 랜덤 신전 · ${SHAPES[shape]} #${seed % 10000}`,
+    tip: shape === "split" ? "불 길·물 길로 계속 갈라져요! 서로 상대 팀 문을 열어 줘요." : shape === "up" ? "위로 위로! 엘리베이터는 아래·위 발판으로 움직여요." : shape === "down" ? "아래로 뛰어내리며 지하 출구까지! 떨어진 곳 웅덩이 조심." : "옆으로 긴 신전! 화면 끝 화살표로 친구 위치를 확인해요.",
+  };
+
+  // ---- 3) 조각 붙이기 ----
+  def.build = (g) => {
+    def.elev = [];
+    const ground = (x1, x2, fl, c = "#") => { F(g, x1, fl, x2, fl, c); if (fl + 1 <= H - 2) F(g, x1, fl + 1, x2, H - 2); };
+    let x0 = 1;
+    for (const it of plan) {
+      const fa = it.f + off, fo = it.fOut + off, w = it.w;
+      it.x0 = x0;
+      switch (it.type) {
+        case "start": ground(x0, x0 + w - 1, fa); for (let k = 1; k <= 3; k++) P(g, x0 + k, fa - 1, "S"); break;
+        case "exit": ground(x0, x0 + w - 1, fa); P(g, x0 + 3, fa - 1, "R"); P(g, x0 + 5, fa - 1, "B"); break;
+        case "pool":
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 3, fa, x0 + 4, fa, it.liq);
+          if (it.liq === "~") P(g, x0 + 4, fa - 3, gemC(it.ge)); else P(g, x0 + 3, fa - 1, it.liq === "L" ? "r" : "b");
+          break;
+        case "pool2":
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 3, fa, x0 + 4, fa, liq(it.a)); F(g, x0 + 5, fa, x0 + 6, fa, liq(other(it.a)));
+          P(g, x0 + 3, fa - 1, gemC(it.a)); P(g, x0 + 6, fa - 1, gemC(other(it.a)));
+          break;
+        case "gate": {
+          ground(x0, x0 + w - 1, fa);
+          const gx = x0 + 6; F(g, gx, 1, gx, fa - 5); F(g, gx, fa - 4, gx, fa - 1, it.gk.toUpperCase());
+          ch[it.gk].passX = gx;
+          if (it.v === "pair") { P(g, x0 + 3, fa - 1, it.gk); P(g, x0 + 9, fa - 1, it.gk); }
+          else if (it.v === "elem") { P(g, x0 + 3, fa - 1, it.gk); P(g, x0 + 9, fa - 1, it.gk2); }
+          else if (it.v === "lever") P(g, x0 + 3, fa - 1, it.gk);
+          else F(g, x0 + 2, fa - 1, x0 + 4, fa - 1, it.gk);
+          if (it.gemOn) P(g, x0 + 10, fa - 1, gemC(it.ge));
+          break;
+        }
+        case "ice":
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 2, fa, x0 + 9, fa, "I"); F(g, x0 + 10, fa, x0 + 11, fa, "~");
+          P(g, x0 + 4, fa - 1, gemC(it.ge)); P(g, x0 + 7, fa - 1, gemC(other(it.ge)));
+          break;
+        case "gems":
+          ground(x0, x0 + w - 1, fa); F(g, x0 + 3, fa - 2, x0 + 5, fa - 2); F(g, x0 + 6, fa - 4, x0 + 7, fa - 4);
+          P(g, x0 + 4, fa - 3, gemC(it.e1)); P(g, x0 + 7, fa - 5, gemC(it.e2));
+          break;
+        case "lane": {
+          ground(x0, x0 + w - 1, fa);
+          F(g, x0 + 2, fa - 2, x0 + 3, fa - 1);                 // 입구 계단
+          F(g, x0 + 4, 1, x0 + 17, fa - 7);                     // 천장
+          F(g, x0 + 4, fa - 4, x0 + 17, fa - 4);                // 가운데 칸막이 (위 길의 바닥)
+          F(g, x0 + 7, fa - 4, x0 + 13, fa - 4, liq(it.a));     // 위 길 = a팀 길
+          F(g, x0 + 7, fa, x0 + 13, fa, liq(other(it.a)));      // 아래 길 = 반대 팀 길
+          P(g, x0 + 5, fa - 1, it.cu); F(g, x0 + 15, fa - 6, x0 + 15, fa - 5, it.cu.toUpperCase());
+          P(g, x0 + 16, fa - 5, it.cv); F(g, x0 + 15, fa - 3, x0 + 15, fa - 1, it.cv.toUpperCase());
+          ch[it.cu].passX = x0 + 15; ch[it.cv].passX = x0 + 15;
+          P(g, x0 + 10, fa - 5, gemC(it.a)); P(g, x0 + 10, fa - 1, gemC(other(it.a)));
+          break;
+        }
+        case "climbLedge":
+          ground(x0, x0 + 5, fa); F(g, x0 + 1, fa - 2, x0 + 2, fa - 2); F(g, x0 + 4, fa - 4, x0 + 5, fa - 4); ground(x0 + 6, x0 + 7, fo);
+          break;
+        case "climbElev":
+          ground(x0, x0 + 5, fa); ground(x0 + 6, x0 + 7, fo);
+          def.elev.push({ ch: it.ek, x: x0 + 3, y: fa - 1, w: 3, dy: fo - (fa - 1) });
+          P(g, x0 + 1, fa - 1, it.ek); P(g, x0 + 7, fo - 1, it.ek);
+          ch[it.ek].passX = x0 + 6;
+          break;
+        case "drop":
+          ground(x0, x0 + 2, fa); ground(x0 + 3, x0 + 7, fo);
+          if (it.pool) F(g, x0 + 6, fo, x0 + 7, fo, liq(it.pool));
+          P(g, x0 + 3, fa + 1, gemC(it.ge));
+          break;
+        case "stepUp": ground(x0, x0 + 1, fa); ground(x0 + 2, x0 + 3, fo); break;
+        case "stepDown": ground(x0, x0 + 1, fa); ground(x0 + 2, x0 + 3, fo); break;
+      }
+      x0 += w;
+    }
+  };
+  def.plan = plan;
+  return def;
+}
+
+// ===================== 작은 도구들 =====================
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ov = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("show"), 2400); }
+const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+// ===================== 스테이지 읽기 =====================
+let L = null;   // 현재 스테이지
+function loadLevel(arg) {
+  const def = typeof arg === "object" ? arg : LEVELS[arg], W = def.W || COLS, H = def.H || ROWS, g = mkGrid(W, H); def.build(g);
+  const idx = def.random ? "R" : arg;
+  const lv = { idx, def, W, H, grid: g, plates: [], gates: [], gems: [], doors: [], spawns: [], levers: [], elev: [], chans: {} };
+  for (const k in def.ch) lv.chans[k] = { ...def.ch[k], k, passed: false, passSent: false, color: def.ch[k].t === "group" ? "#b197fc" : def.ch[k].only === "fire" ? "#ff6b6b" : def.ch[k].only === "water" ? "#4dabf7" : CH_COLORS[Object.keys(def.ch).indexOf(k) % CH_COLORS.length], on: false, lever: false, latched: false, open: 0, count: 0 };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = g[y][x];
+    if (c === "S") { lv.spawns.push({ x, y }); g[y][x] = "."; }
+    else if (c === "r" || c === "b") { lv.gems.push({ i: lv.gems.length, x, y, el: c === "r" ? "fire" : "water" }); g[y][x] = "."; }
+    else if (c === "R" || c === "B") { lv.doors.push({ x, y, el: c === "R" ? "fire" : "water" }); g[y][x] = "."; }
+    else if (/[a-z]/.test(c) && lv.chans[c]) { (lv.chans[c].t === "lever" ? lv.levers : lv.plates).push({ x, y, ch: c }); g[y][x] = "."; }
+    else if (/[A-Z]/.test(c) && lv.chans[c.toLowerCase()] && c !== "I" && c !== "L" && c !== "W") { lv.gates.push({ x, y, ch: c.toLowerCase() }); g[y][x] = "."; }
+  }
+  for (const e of def.elev) lv.elev.push({ ...e, off: 0, d: 0, rect: { x: e.x * T, y: e.y * T, w: e.w * T, h: T } });
+  lv.gateAt = {}; for (const gt of lv.gates) lv.gateAt[gt.x + "," + gt.y] = gt.ch;
+  lv.checkpoint = lv.spawns.map((s) => ({ x: s.x, y: s.y }));
+  L = lv; buildBg(); camSnap = true;
+  return lv;
+}
+const tileAt = (tx, ty) => (tx < 0 || ty < 0 || tx >= L.W || ty >= L.H ? "#" : L.grid[ty][tx]);
+const isSolidChar = (c) => c === "#" || c === "I" || c === "L" || c === "W" || c === "~";
+function solidTile(tx, ty) {
+  const c = tileAt(tx, ty);
+  if (isSolidChar(c)) return true;
+  const gch = L.gateAt[tx + "," + ty];
+  return gch ? L.chans[gch].open < 0.5 : false;
+}
+
+// ===================== 상태 =====================
+const params = new URLSearchParams(location.search);
+const useSupabase = !!SUPABASE_URL && !!SUPABASE_KEY && !params.has("local");
+const myId = Math.random().toString(36).slice(2, 10);
+let myName = "", myTeam = localStorage.getItem("fw-team") || "any", mySpec = false, joinedAt = Date.now();
+let net = null, room = "", present = {}, knownIds = new Set();
+let phase = "lobby";           // lobby | play | result
+let cfgLvl = 0, cfgShape = "any", parts = [], me = null, others = {};
+let camX = 0, camY = 0, camSnap = true;
+let gemsTaken = new Set(), deaths = {}, gemsBy = {}, emos = {}, pings = [], particles = [], feed = [];
+let startAt = 0, clearAt = 0, lastSend = 0, lastSentKey = "", steps = 0, lastEmo = 0, lastLever = 0;
+const keys = {};
+const elapsed = () => (phase === "play" ? Math.max(0, (performance.now() - startAt) / 1000 - COUNTDOWN) : clearAt);
+const countingDown = () => phase === "play" && (performance.now() - startAt) / 1000 < COUNTDOWN;
+
+// ===================== 통신 (Supabase 또는 테스트 모드) =====================
+function sysMsg(t) { const d = document.createElement("div"); d.className = "sys"; d.textContent = t; $("log").appendChild(d); $("log").scrollTop = 1e9; }
+function presencePayload() { return { name: myName, joinedAt, spec: mySpec, tm: myTeam }; }
+function makeSupabaseNet(rm) {
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const ch = client.channel("firewater-" + rm, { config: { broadcast: { self: false }, presence: { key: myId } } });
+  const api = { msgFn: null, presFn: null };
+  ch.on("broadcast", { event: "m" }, ({ payload }) => api.msgFn && api.msgFn(payload));
+  ch.on("presence", { event: "sync" }, () => {
+    const st = ch.presenceState(), list = {};
+    for (const id in st) { const p = st[id][st[id].length - 1]; if (p) list[id] = { name: p.name, joinedAt: p.joinedAt, spec: !!p.spec, tm: p.tm || "any" }; }
+    api.presFn && api.presFn(list);
+  });
+  ch.subscribe(async (status) => {
+    if (status === "SUBSCRIBED") { await ch.track(presencePayload()); api.ready && api.ready(); }
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") sysMsg("서버 연결 문제가 생겼어요. 새로고침해 보세요.");
+  });
+  api.send = (msg) => ch.send({ type: "broadcast", event: "m", payload: msg });
+  api.retrack = () => ch.track(presencePayload());
+  return api;
+}
+function makeLocalNet(rm) {
+  const bc = new BroadcastChannel("firewater-" + rm);
+  const api = { msgFn: null, presFn: null }, seen = {};
+  const meP = () => ({ id: myId, ...presencePayload() });
+  const emitPres = () => {
+    const now = Date.now(), list = { [myId]: presencePayload() };
+    for (const id in seen) if (now - seen[id].t < 5000) list[id] = seen[id].p; else delete seen[id];
+    api.presFn && api.presFn(list);
+  };
+  bc.onmessage = (e) => {
+    const m = e.data;
+    if (m.__ping) { const isNew = !seen[m.p.id]; seen[m.p.id] = { p: { name: m.p.name, joinedAt: m.p.joinedAt, spec: m.p.spec, tm: m.p.tm }, t: Date.now() }; if (isNew) bc.postMessage({ __ping: 1, p: meP() }); emitPres(); return; }
+    if (m.__bye) { delete seen[m.id]; emitPres(); return; }
+    api.msgFn && api.msgFn(m);
+  };
+  setInterval(() => { bc.postMessage({ __ping: 1, p: meP() }); emitPres(); }, 1500);
+  addEventListener("beforeunload", () => bc.postMessage({ __bye: 1, id: myId }));
+  setTimeout(() => { bc.postMessage({ __ping: 1, p: meP() }); emitPres(); api.ready && api.ready(); }, 50);
+  api.send = (msg) => bc.postMessage(msg);
+  api.retrack = () => { bc.postMessage({ __ping: 1, p: meP() }); emitPres(); };
+  return api;
+}
+function emit(msg) { if (!net) return; net.send(msg); handle(msg); }
+function send(msg) { if (net) net.send(msg); }
+
+// ===================== 입장 =====================
+$("nameInput").value = localStorage.getItem("fw-name") || "";
+if (params.get("room")) $("roomInput").value = params.get("room");
+function enter(create, spec) {
+  const name = $("nameInput").value.trim();
+  if (!name) return toast("닉네임을 적어 주세요!");
+  let r = $("roomInput").value.trim();
+  if (!r && create) r = String(Math.floor(1000 + Math.random() * 9000));
+  if (!/^[A-Za-z0-9]{2,12}$/.test(r)) return toast("방 번호는 영어·숫자 2~12자예요.");
+  myName = name; room = r.toUpperCase(); mySpec = !!spec;
+  localStorage.setItem("fw-name", name);
+  $("join").classList.add("hidden"); $("game").classList.remove("hidden");
+  $("roomCode").textContent = room;
+  history.replaceState(null, "", "?room=" + room + (useSupabase ? "" : "&local=1"));
+  net = useSupabase ? makeSupabaseNet(room) : makeLocalNet(room);
+  net.msgFn = handle; net.presFn = onPresence;
+  net.ready = () => sysMsg(useSupabase ? `방 ${room}에 들어왔어요!` : `테스트 모드: 방 ${room} (같은 브라우저 탭끼리만)`);
+  buildLvlPick(); renderLobbyBar();
+}
+$("createBtn").onclick = () => enter(true, false);
+$("enterBtn").onclick = () => enter(false, false);
+$("watchBtn").onclick = () => enter(false, true);
+$("copyBtn").onclick = () => { navigator.clipboard.writeText(location.href).then(() => toast("초대 링크를 복사했어요!")); };
+
+// ===================== 접속자 =====================
+function sortedIds() { return Object.keys(present).sort((a, b) => present[a].joinedAt - present[b].joinedAt || (a < b ? -1 : 1)); }
+const hostId = () => sortedIds()[0];
+const isHost = () => hostId() === myId;
+const lobbyPlayers = () => sortedIds().filter((id) => !present[id].spec).slice(0, MAX_PLAYERS);
+const livePlayers = () => parts.filter((p) => present[p.id]);
+
+function onPresence(list) {
+  const before = knownIds;
+  present = list; knownIds = new Set(Object.keys(list));
+  for (const id of knownIds) if (!before.has(id) && id !== myId && before.size) sysMsg(`${list[id].name} 님이 들어왔어요`);
+  for (const id of before) if (!knownIds.has(id)) { const p = parts.find((q) => q.id === id); sysMsg(`${p ? p.name : "누군가"} 님이 나갔어요`); }
+  if (isHost()) {
+    if (phase === "play") { for (const id of knownIds) if (!before.has(id) && id !== myId) send(syncMsg(id)); }
+    else if (phase === "lobby") send({ t: "cfg", lvl: cfgLvl, shape: cfgShape });
+  }
+  renderPlayers(); renderLobbyBar();
+}
+function syncMsg(to) {
+  const lev = {}, lat = [];
+  const pas = [];
+  for (const k in L.chans) { if (L.chans[k].lever) lev[k] = 1; if (L.chans[k].latched) lat.push(k); if (L.chans[k].passed) pas.push(k); }
+  return { pas, t: "sync", to, lvl: L.idx, seed: L.def.seed, shape: L.def.shape, parts, gems: [...gemsTaken], lev, lat, el: elapsed(), deaths, gemsBy };
+}
+
+// ===================== 메시지 처리 =====================
+function handle(m) {
+  switch (m.t) {
+    case "chat": { const d = document.createElement("div"); d.innerHTML = `<b>${esc(m.name)}</b> ${esc(m.text)}`; $("log").appendChild(d); $("log").scrollTop = 1e9; return; }
+    case "cfg": cfgLvl = m.lvl; if (m.shape) cfgShape = m.shape; if (phase === "lobby") loadLevel(previewDef()); renderLobbyBar(); return;
+    case "start": startLevel(m); return;
+    case "sync": if (m.to === myId && phase !== "play") { startLevel({ lvl: m.lvl, seed: m.seed, shape: m.shape, parts: m.parts }); applySync(m); sysMsg("게임이 진행 중이라 이번 스테이지는 관전해요. 다음 스테이지부터 같이 해요!"); } return;
+    case "st": {
+      const o = others[m.id]; if (!o) return;
+      if (Math.abs(o.rx - m.x) > 80 || Math.abs(o.ry - m.y) > 80 || (o.dead && !m.d)) { o.rx = m.x; o.ry = m.y; }
+      o.x = m.x; o.y = m.y; o.f = m.f; o.dead = !!m.d; o.ex = !!m.ex; o.g = !!m.g; o.seen = performance.now();
+      return;
+    }
+    case "gem": {
+      if (gemsTaken.has(m.i)) return; gemsTaken.add(m.i);
+      gemsBy[m.id] = (gemsBy[m.id] || 0) + 1;
+      const gm = L.gems[m.i]; if (gm) burst(gm.x * T + 12, gm.y * T + 12, gm.el === "fire" ? "#ff8787" : "#74c0fc", 12);
+      renderPlayers(); return;
+    }
+    case "lever": { const c = L && L.chans[m.ch]; if (c) c.lever = !!m.v; const p = parts.find((q) => q.id === m.id); pushFeed(`🕹️ ${p ? p.name : "누군가"} 님이 레버를 ${m.v ? "열었어요" : "닫았어요 😈"}`); return; }
+    case "latch": {
+      const c = L && L.chans[m.ch]; if (!c || c.latched) return;
+      c.latched = true;
+      const tiles = L.plates.filter((p) => p.ch === m.ch);
+      L.checkpoint = tiles.map((p) => ({ x: p.x, y: p.y }));
+      pushFeed("🟣 전원 집합 성공! 체크포인트 저장 ✨");
+      for (const p of tiles) burst(p.x * T + 12, p.y * T + 20, "#d0bfff", 8);
+      return;
+    }
+    case "die": {
+      deaths[m.id] = (deaths[m.id] || 0) + 1;
+      const p = parts.find((q) => q.id === m.id);
+      burst(m.x, m.y, m.el === "fire" ? "#ff922b" : "#4dabf7", 22);
+      const why = { L: "용암에 빠졌어요 🔥", W: "물에 빠져 꺼졌어요 💦", "~": "독물에 빠졌어요 🤢", fall: "떨어졌어요 😵" }[m.why] || "쓰러졌어요";
+      pushFeed(`💀 ${p ? p.name : "누군가"} 님이 ${why}`);
+      renderPlayers(); return;
+    }
+    case "pass": { const c = L && L.chans[m.ch]; if (c) c.passed = true; return; }
+    case "emo": emos[m.id] = { e: m.e, at: performance.now() }; return;
+    case "ping": pings.push({ x: m.x, y: m.y, name: m.name, el: m.el, at: performance.now() }); if (pings.length > 8) pings.shift(); return;
+    case "clear": if (phase === "play") showResult(m); return;
+    case "lobby": phase = "lobby"; me = null; others = {}; parts = []; $("result").classList.add("hidden"); loadLevel(previewDef()); renderPlayers(); renderLobbyBar(); return;
+  }
+}
+function applySync(m) {
+  for (const i of m.gems) gemsTaken.add(i);
+  for (const k in m.lev) if (L.chans[k]) L.chans[k].lever = true;
+  for (const k of m.pas || []) if (L.chans[k]) L.chans[k].passed = true;
+  for (const k of m.lat) if (L.chans[k]) { L.chans[k].latched = true; L.checkpoint = L.plates.filter((p) => p.ch === k).map((p) => ({ x: p.x, y: p.y })); }
+  deaths = m.deaths || {}; gemsBy = m.gemsBy || {};
+  startAt = performance.now() - (m.el + COUNTDOWN) * 1000;
+}
+function pushFeed(text) { feed.push({ text, at: performance.now() }); if (feed.length > 4) feed.shift(); }
+function burst(x, y, color, n) { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, s = 1 + Math.random() * 3; particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1.5, life: 40 + Math.random() * 20, color }); } }
+
+function spawnPos(i) {
+  const cp = L.checkpoint[i % L.checkpoint.length], k = Math.floor(i / L.checkpoint.length);
+  return { x: cp.x * T + (T - PW) / 2 + (k % 2 ? 4 : -4) * Math.ceil(k / 2), y: cp.y * T + T - PH };
+}
+function startLevel(m) {
+  loadLevel(m.lvl === "R" ? makeRandomDef(m.seed, m.shape) : m.lvl); cfgLvl = m.lvl;
+  parts = m.parts; phase = "play"; startAt = performance.now(); clearAt = 0;
+  gemsTaken = new Set(); deaths = {}; gemsBy = {}; emos = {}; pings = []; particles = []; feed = []; others = {};
+  parts.forEach((p, i) => {
+    if (p.id === myId) return;
+    const s = spawnPos(i);
+    others[p.id] = { x: s.x, y: s.y, rx: s.x, ry: s.y, f: 1, team: p.team, col: p.col, name: p.name, dead: false, ex: false, g: true, seen: 0 };
+  });
+  const mi = parts.findIndex((p) => p.id === myId);
+  me = mi >= 0 ? { idx: mi, team: parts[mi].team, col: parts[mi].col, x: 0, y: 0, vx: 0, vy: 0, ground: false, coyote: 0, jbuf: 0, f: 1, dead: 0, ex: false, ride: -1, ice: false, walk: 0 } : null;
+  if (me) respawn();
+  $("result").classList.add("hidden");
+  renderPlayers(); renderLobbyBar();
+  sysMsg(`▶ ${L.def.name} 시작! ${L.def.tip}`);
+}
+function respawn() { const s = spawnPos(me.idx); Object.assign(me, { x: s.x, y: s.y, vx: 0, vy: 0, dead: 0, ex: false, ride: -1 }); }
+
+// ===================== 로비 =====================
+function previewDef() { return cfgLvl === "R" ? Object.assign(makeRandomDef(4242, cfgShape === "any" ? "side" : cfgShape), { name: "🎲 랜덤 신전 (예시 맵)", tip: "시작할 때마다 새 신전이 만들어져요! 모양: " + (cfgShape === "any" ? "🎲 아무거나" : SHAPES[cfgShape]) }) : cfgLvl; }
+function buildLvlPick() {
+  const box = $("lvlPick");
+  const items = LEVELS.map((lv, i) => [i, lv.name]).concat([["R", "🎲 랜덤 신전"]]);
+  for (const [i, name] of items) {
+    const b = document.createElement("button"); b.dataset.i = i; b.textContent = name;
+    if (i === "R") b.className = "green";
+    b.onclick = () => { if (!isHost()) return toast("스테이지는 방장이 골라요"); emit({ t: "cfg", lvl: i, shape: cfgShape }); };
+    box.appendChild(b);
+  }
+  const sb = $("shapePick");
+  for (const k of ["any", ...Object.keys(SHAPES)]) {
+    const b = document.createElement("button"); b.dataset.sh = k; b.textContent = k === "any" ? "🎲 아무거나" : SHAPES[k];
+    b.onclick = () => { if (!isHost()) return toast("모양은 방장이 골라요"); emit({ t: "cfg", lvl: "R", shape: k }); };
+    sb.appendChild(b);
+  }
+  loadLevel(previewDef());
+}
+document.querySelectorAll(".teampick [data-tm]").forEach((b) => b.onclick = () => { myTeam = b.dataset.tm; localStorage.setItem("fw-team", myTeam); net && net.retrack(); renderLobbyBar(); });
+$("specToggle").onclick = () => { mySpec = !mySpec; net && net.retrack(); renderLobbyBar(); };
+function makeTeams(ids) {
+  const fire = [], water = [], any = [];
+  for (const id of ids) (present[id].tm === "fire" ? fire : present[id].tm === "water" ? water : any).push(id);
+  for (const id of any) (fire.length <= water.length ? fire : water).push(id);
+  while (fire.length > 3 && water.length < 3) water.push(fire.pop());
+  while (water.length > 3 && fire.length < 3) fire.push(water.pop());
+  if (!fire.length && water.length > 1) fire.push(water.pop());
+  if (!water.length && fire.length > 1) water.push(fire.pop());
+  const res = [];
+  fire.forEach((id, i) => res.push({ id, name: present[id].name, team: "fire", col: FIRE_COLS[i % 3] }));
+  water.forEach((id, i) => res.push({ id, name: present[id].name, team: "water", col: WATER_COLS[i % 3] }));
+  return res;
+}
+function hostStart(lvl, keepSeed) {
+  const ids = lobbyPlayers();
+  if (ids.length < MIN_PLAYERS) return toast(`최소 ${MIN_PLAYERS}명이 있어야 해요! 친구를 불러 주세요 🙏`);
+  const msg = { t: "start", lvl, parts: makeTeams(ids) };
+  if (lvl === "R") {
+    msg.seed = keepSeed ? L.def.seed : Math.floor(Math.random() * 1e9);
+    msg.shape = keepSeed ? L.def.shape : cfgShape === "any" ? Object.keys(SHAPES)[Math.floor(Math.random() * 4)] : cfgShape;
+  }
+  emit(msg);
+}
+$("startBtn").onclick = () => { if (isHost() && phase === "lobby") hostStart(cfgLvl); };
+$("restartBtn").onclick = () => { if (!isHost() || phase !== "play") return; if (confirm("이 스테이지를 처음부터 다시 할까요?")) emit({ t: "start", lvl: L.idx, seed: L.def.seed, shape: L.def.shape, parts }); };
+function renderLobbyBar() {
+  const lobby = phase === "lobby";
+  $("lobbyBar").classList.toggle("hidden", !lobby);
+  $("restartBtn").classList.toggle("hidden", !(phase === "play" && isHost()));
+  document.querySelectorAll(".teampick [data-tm]").forEach((b) => b.classList.toggle("sel", b.dataset.tm === myTeam));
+  document.querySelectorAll("#lvlPick button").forEach((b) => b.classList.toggle("sel", String(b.dataset.i) === String(cfgLvl)));
+  $("shapePick").classList.toggle("hidden", cfgLvl !== "R");
+  document.querySelectorAll("#shapePick button").forEach((b) => b.classList.toggle("sel", b.dataset.sh === cfgShape));
+  $("specToggle").textContent = mySpec ? "🙋 참가하기" : "👀 관전하기";
+  const host = isHost(), n = lobbyPlayers().length;
+  $("startBtn").classList.toggle("hidden", !host);
+  const hn = present[hostId()];
+  $("hostNote").textContent = host ? (n < MIN_PLAYERS ? `지금 ${n}명 — 최소 ${MIN_PLAYERS}명이 필요해요` : `${n}명 준비 완료! 시작을 눌러요 (최대 ${MAX_PLAYERS}명)`) : hn ? `방장(${hn.name})이 시작하길 기다리는 중…` : "";
+  if (lobby) $("status").textContent = "대기실 🏛️";
+}
+function renderPlayers() {
+  const ul = $("players"); ul.innerHTML = "";
+  let rows;
+  if (phase === "lobby") rows = lobbyPlayers().map((id) => ({ id, name: present[id].name, team: present[id].tm }));
+  else rows = parts.map((p) => ({ ...p }));
+  for (const r of rows) {
+    const li = document.createElement("li");
+    if (r.team === "fire") li.classList.add("fire"); if (r.team === "water") li.classList.add("water");
+    if (r.id === myId) li.classList.add("me");
+    const ic = r.team === "fire" ? "🔥" : r.team === "water" ? "💧" : "🎲";
+    const crown = r.id === hostId() ? " 👑" : "";
+    let st = "";
+    if (phase !== "lobby") {
+      const o = r.id === myId ? me : others[r.id];
+      st = `💎${gemsBy[r.id] || 0} 💀${deaths[r.id] || 0}` + (o && o.ex ? " 🚪" : "") + (!present[r.id] ? " (나감)" : "");
+    }
+    li.innerHTML = `<span>${ic}</span><span class="nm">${esc(r.name)}${crown}</span><span class="st">${st}</span>`;
+    ul.appendChild(li);
+  }
+  const inGame = new Set(phase === "lobby" ? lobbyPlayers() : parts.map((p) => p.id));
+  const specs = sortedIds().filter((id) => !inGame.has(id)).map((id) => present[id].name);
+  $("specList").textContent = specs.length ? "👀 관전: " + specs.join(", ") : "";
+}
+
+// ===================== 채팅 =====================
+let chatPending = false, lastChatSend = 0;
+function sendChat() {
+  if (performance.now() - lastChatSend < 80) return;
+  const text = $("chatInput").value.trim();
+  if (text) { lastChatSend = performance.now(); emit({ t: "chat", name: myName, text }); }
+  $("chatInput").value = ""; $("chatInput").blur();
+}
+$("chatForm").onsubmit = (e) => { e.preventDefault(); sendChat(); };
+$("chatInput").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { e.preventDefault(); $("chatInput").blur(); return; }
+  if (e.key !== "Enter") return;
+  e.preventDefault(); e.stopPropagation();
+  if (e.isComposing || e.keyCode === 229) { chatPending = true; return; }
+  sendChat();
+});
+$("chatInput").addEventListener("compositionend", () => { if (chatPending) { chatPending = false; setTimeout(sendChat, 0); } });
+
+// ===================== 조작 =====================
+const JUMP_KEYS = ["ArrowUp", "KeyW", "Space"], DOWN_KEYS = ["ArrowDown", "KeyS"];
+addEventListener("keydown", (e) => {
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  if (!net) return;
+  if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); $("chatInput").focus(); return; }
+  const ei = ["Digit1", "Digit2", "Digit3", "Digit4"].indexOf(e.code);
+  if (ei >= 0) { if (performance.now() - lastEmo > 700) { lastEmo = performance.now(); emit({ t: "emo", id: myId, e: EMOTES[ei] }); } return; }
+  if (phase === "play" && (JUMP_KEYS.includes(e.code) || DOWN_KEYS.includes(e.code) || e.code.startsWith("Arrow"))) e.preventDefault();
+  if (!e.repeat && JUMP_KEYS.includes(e.code) && me) me.jbuf = 7;
+  if (!e.repeat && DOWN_KEYS.includes(e.code)) tryLever();
+  keys[e.code] = true;
+});
+addEventListener("keyup", (e) => { keys[e.code] = false; });
+addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
+const held = (list) => list.some((k) => keys[k]);
+$("board").addEventListener("mousedown", (e) => {
+  if (phase !== "play" || !net) return;
+  const r = e.target.getBoundingClientRect();
+  const x = ((e.clientX - r.left) / r.width) * CW + camX, y = ((e.clientY - r.top) / r.height) * CH + camY;
+  emit({ t: "ping", x, y, name: myName, el: me ? me.team : "spec" });
+});
+function tryLever() {
+  if (!me || me.dead || phase !== "play" || countingDown() || performance.now() - lastLever < 350) return;
+  const pr = { x: me.x, y: me.y, w: PW, h: PH };
+  for (const lv of L.levers) {
+    if (ov(pr, { x: lv.x * T, y: lv.y * T, w: T, h: T })) { lastLever = performance.now(); emit({ t: "lever", ch: lv.ch, v: !L.chans[lv.ch].lever, id: myId }); return; }
+  }
+}
+
+// ===================== 물리 =====================
+function allBodies() {   // 발판 계산용: 나 + 친구들 (화면에 보이는 위치)
+  const list = [];
+  if (me && !me.dead) list.push({ x: me.x, y: me.y, w: PW, h: PH, team: me.team });
+  for (const id in others) { const o = others[id]; if (!o.dead && present[id]) list.push({ x: o.rx, y: o.ry, w: PW, h: PH, team: o.team }); }
+  return list;
+}
+function updateChannels() {
+  const bodies = allBodies(), need = livePlayers().length;
+  for (const k in L.chans) { L.chans[k].on = false; L.chans[k].count = 0; }
+  for (const pl of L.plates) {
+    const c = L.chans[pl.ch], r = { x: pl.x * T + 2, y: pl.y * T + 14, w: T - 4, h: 10 };
+    for (const b of bodies) if ((!c.only || c.only === b.team) && ov(b, r)) { c.on = true; if (c.t === "group") c.count++; }
+  }
+  for (const k in L.chans) { const c = L.chans[k]; if (c.link && c.on && L.chans[c.link]) L.chans[c.link].on = true; }
+  // 랜덤 신전: 모두가 지나간 문은 계속 열어 두기 (죽고 부활한 친구가 혼자 갇히지 않게)
+  if (L.def.random && bodies.length === need && need > 0) for (const k in L.chans) {
+    const c = L.chans[k];
+    if (c.passX != null && !c.passed && !c.passSent && bodies.every((b) => b.x > c.passX * T + T)) { c.passSent = true; emit({ t: "pass", ch: k }); }
+  }
+  for (const k in L.chans) {
+    const c = L.chans[k];
+    if (c.passed && c.t !== "group") c.on = true;
+    if (c.t === "group") {
+      c.count = Math.min(c.count, need);
+      if (!c.latched && need >= MIN_PLAYERS && c.count >= need && me && !countingDown()) emit({ t: "latch", ch: k });
+      c.on = c.latched;
+    } else if (c.t === "lever") c.on = c.lever || c.passed;
+  }
+  // 문: 열려야 하면 열고, 닫혀야 하는데 누가 문 안에 서 있으면 계속 열어 둠
+  for (const k in L.chans) {
+    const c = L.chans[k];
+    let want = c.on;
+    if (!want && c.open > 0.5) for (const gt of L.gates) if (gt.ch === k && bodies.some((b) => ov(b, { x: gt.x * T, y: gt.y * T, w: T, h: T }))) want = true;
+    c.open = want ? Math.min(1, c.open + 0.12) : Math.max(0, c.open - 0.12);
+  }
+  for (const e of L.elev) {
+    const pc = L.chans[e.ch[0]];
+    const on = pc && pc.passed ? (performance.now() / 1000) % 7 < 3.5 : e.ch.split("").some((k) => L.chans[k] && L.chans[k].on);
+    const target = on ? e.dy * T : 0, prev = e.off;
+    e.off = target < e.off ? Math.max(target, e.off - 1.6) : Math.min(target, e.off + 1.6);
+    e.d = e.off - prev;
+    e.rect.y = e.y * T + e.off;
+  }
+}
+function solidsNear(p, ghost) {
+  const res = [];
+  const x0 = Math.floor(p.x / T) - 1, x1 = Math.floor((p.x + PW) / T) + 1, y0 = Math.floor(p.y / T) - 1, y1 = Math.floor((p.y + PH) / T) + 1;
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (solidTile(tx, ty)) res.push({ x: tx * T, y: ty * T, w: T, h: T, tile: tileAt(tx, ty) });
+  L.elev.forEach((e, i) => { if (!ghost.has(i)) res.push({ ...e.rect, elev: i }); });
+  return res;
+}
+function stepMe() {
+  const p = me;
+  if (p.dead) { if (--p.dead <= 0) respawn(); return; }
+  // 엘리베이터 타고 있으면 같이 움직이기
+  if (p.ride >= 0 && L.elev[p.ride]) p.y += L.elev[p.ride].d;
+  const ghost = new Set();
+  L.elev.forEach((e, i) => { if (ov({ x: p.x, y: p.y, w: PW, h: PH }, e.rect)) ghost.add(i); });
+
+  const dir = (held(["ArrowRight", "KeyD"]) ? 1 : 0) - (held(["ArrowLeft", "KeyA"]) ? 1 : 0);
+  if (dir) p.f = dir;
+  if (p.ground && p.ice) { p.vx += dir * 0.09; if (!dir) p.vx *= 0.993; p.vx = Math.max(-MAXV * 1.35, Math.min(MAXV * 1.35, p.vx)); }
+  else if (p.ground) p.vx += (dir * MAXV - p.vx) * 0.35;
+  else if (dir) p.vx += (dir * MAXV - p.vx) * 0.12;
+  else p.vx *= 0.97;
+  p.coyote = p.ground ? 6 : Math.max(0, p.coyote - 1);
+  if (p.jbuf > 0) p.jbuf--;
+  if (p.jbuf > 0 && p.coyote > 0) { p.vy = -JUMP; p.jbuf = 0; p.coyote = 0; p.ground = false; p.ride = -1; }
+  if (!held(JUMP_KEYS) && p.vy < -3) p.vy += 0.5;   // 짧게 누르면 낮게 점프
+  p.vy = Math.min(MAXFALL, p.vy + GRAV);
+
+  // X 이동
+  p.x += p.vx;
+  for (const s of solidsNear(p, ghost)) if (ov({ x: p.x, y: p.y, w: PW, h: PH }, s)) { if (p.vx > 0) p.x = s.x - PW; else if (p.vx < 0) p.x = s.x + s.w; p.vx = 0; }
+  // Y 이동
+  p.y += p.vy; p.ground = false; p.ride = -1;
+  let under = [];
+  for (const s of solidsNear(p, ghost)) if (ov({ x: p.x, y: p.y, w: PW, h: PH }, s)) {
+    if (p.vy > 0) { p.y = s.y - PH; p.ground = true; if (s.elev != null) p.ride = s.elev; }
+    else if (p.vy < 0) p.y = s.y + s.h;
+    p.vy = 0;
+  }
+  // 발밑 확인 (얼음/용암/물/독물)
+  p.ice = false;
+  if (p.ground && p.ride < 0) {
+    const fy = Math.floor((p.y + PH + 1) / T);
+    const cx = Math.floor((p.x + PW / 2) / T), lx = Math.floor((p.x + 3) / T), rx = Math.floor((p.x + PW - 3) / T);
+    const cc = tileAt(cx, fy);
+    for (const tx of [lx, cx, rx]) if (tileAt(tx, fy) === "I") p.ice = true;
+    const bad = (c) => c === "~" || (c === "L" && p.team === "water") || (c === "W" && p.team === "fire");
+    if (bad(cc) || (bad(tileAt(lx, fy)) && bad(tileAt(rx, fy)))) return die(bad(cc) ? cc : tileAt(lx, fy));
+  }
+  if (p.y > L.H * T + 40) return die("fall");
+  const pr = { x: p.x, y: p.y, w: PW, h: PH };
+  // 보석
+  for (const gm of L.gems) if (!gemsTaken.has(gm.i) && gm.el === p.team && ov(pr, { x: gm.x * T + 4, y: gm.y * T + 4, w: 16, h: 16 })) emit({ t: "gem", i: gm.i, id: myId });
+  // 출구
+  p.ex = L.doors.some((d) => d.el === p.team && ov(pr, { x: d.x * T, y: d.y * T - T, w: T, h: 2 * T }));
+  if (p.ground && Math.abs(p.vx) > 0.3) p.walk += Math.abs(p.vx) * 0.12;
+}
+function die(why) {
+  if (me.dead) return;
+  me.dead = 70; me.ex = false;
+  emit({ t: "die", id: myId, x: me.x + PW / 2, y: me.y + PH / 2, el: me.team, why });
+  sendState(true);
+}
+function sendState(force) {
+  if (!me) return;
+  const st = { t: "st", id: myId, x: Math.round(me.x), y: Math.round(me.y), f: me.f, d: me.dead ? 1 : 0, ex: me.ex ? 1 : 0, g: me.ground ? 1 : 0 };
+  const key = st.x + "," + st.y + "," + st.f + st.d + st.ex;
+  const now = performance.now();
+  if (force || (key !== lastSentKey && now - lastSend > 66) || now - lastSend > 600) { lastSend = now; lastSentKey = key; send(st); }
+}
+function step() {
+  steps++;
+  for (const id in others) { const o = others[id]; o.rx = lerp(o.rx, o.x, 0.3); o.ry = lerp(o.ry, o.y, 0.3); }
+  for (const pt of particles) { pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.12; pt.life--; }
+  particles = particles.filter((p) => p.life > 0);
+  if (!L) return;
+  if (phase !== "play") return;
+  updateChannels();
+  if (me && !countingDown()) { stepMe(); sendState(false); }
+}
+
+// 방장: 모두 출구에 도착했는지 확인
+setInterval(() => {
+  if (phase !== "play" || !isHost() || countingDown()) return;
+  const live = livePlayers();
+  if (live.length < 1) return;
+  const ok = live.every((p) => (p.id === myId ? me && me.ex && !me.dead : others[p.id] && others[p.id].ex && !others[p.id].dead));
+  if (ok) emit({ t: "clear", lvl: L.idx, time: elapsed(), gems: [...gemsTaken], deaths, gemsBy });
+}, 300);
+setInterval(() => {
+  if (phase !== "play") return;
+  renderPlayers();
+  const live = livePlayers(), at = (p) => (p.id === myId ? me && me.ex : others[p.id] && others[p.id].ex);
+  const f = live.filter((p) => p.team === "fire"), w = live.filter((p) => p.team === "water");
+  $("status").textContent = countingDown() ? "준비!" : `🔥 ${f.filter(at).length}/${f.length} 도착 · 💧 ${w.filter(at).length}/${w.length} 도착`;
+}, 300);
+
+function showResult(m) {
+  phase = "result"; clearAt = m.time;
+  const total = L.gems.length, got = m.gems.length, par = L.def.par;
+  const stars = 1 + (got === total ? 1 : 0) + (m.time <= par ? 1 : 0);
+  const totalDeaths = Object.values(m.deaths).reduce((a, b) => a + b, 0);
+  let mostDie = null, mostGem = null;
+  for (const p of parts) { if ((m.deaths[p.id] || 0) > 0 && (!mostDie || m.deaths[p.id] > m.deaths[mostDie.id])) mostDie = p; if ((m.gemsBy[p.id] || 0) > 0 && (!mostGem || m.gemsBy[p.id] > m.gemsBy[mostGem.id])) mostGem = p; }
+  const host = isHost(), rand = L.idx === "R", hasNext = rand || L.idx < LEVELS.length - 1;
+  $("resultBox").innerHTML = `<h2>🎉 탈출 성공!</h2><div class="stars">${"⭐".repeat(stars)}${"☆".repeat(3 - stars)}</div>
+    <div class="info">${esc(L.def.name)}<br>⏱ ${fmtTime(m.time)} (목표 ${fmtTime(par)} ${m.time <= par ? "✅" : "❌"}) · 💎 ${got}/${total} ${got === total ? "✅" : "❌"} · 💀 팀 전체 ${totalDeaths}번</div>
+    <ul>${mostGem ? `<li class="award"><span>💎</span><span class="nm">보석 수집왕: ${esc(mostGem.name)}</span><span>${m.gemsBy[mostGem.id]}개</span></li>` : ""}
+    ${mostDie ? `<li class="award"><span>💀</span><span class="nm">희생정신상: ${esc(mostDie.name)}</span><span>${m.deaths[mostDie.id]}번</span></li>` : `<li class="award"><span>😇</span><span class="nm">아무도 안 죽었어요! 완벽한 팀워크</span></li>`}
+    ${parts.map((p) => `<li><span>${p.team === "fire" ? "🔥" : "💧"}</span><span class="nm">${esc(p.name)}${p.id === myId ? " (나)" : ""}</span><span>💎${m.gemsBy[p.id] || 0} 💀${m.deaths[p.id] || 0}</span></li>`).join("")}</ul>` +
+    (host ? `<div class="btns">${hasNext ? `<button class="green" id="nextBtn">${rand ? "🎲 새 랜덤 신전" : "▶ 다음 스테이지"}</button>` : ""}<button class="primary" id="againBtn">🔁 다시 하기</button><button id="toLobbyBtn">🏠 대기실로</button></div>`
+      : `<p class="hostnote">방장이 다음을 고르는 중…</p>`) + (!hasNext && !rand ? `<p style="margin:12px 0 0;font-weight:800">🏆 모든 신전을 탈출했어요! 최고의 팀!</p>` : "");
+  $("result").classList.remove("hidden");
+  if (host) {
+    if (hasNext) $("nextBtn").onclick = () => { if (!rand) cfgLvl = L.idx + 1; hostStart(rand ? "R" : cfgLvl); };
+    $("againBtn").onclick = () => hostStart(L.idx, rand);
+    $("toLobbyBtn").onclick = () => emit({ t: "lobby" });
+  }
+  renderLobbyBar();
+}
+
+// ===================== 그리기 =====================
+const cv = $("board"), ctx = cv.getContext("2d");
+const bg = document.createElement("canvas"); bg.width = CW; bg.height = CH;
+function hash(x, y) { let h = x * 374761393 + y * 668265263; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967296; }
+function buildBg() {
+  const BW = L.W * T, BH = L.H * T;
+  bg.width = BW; bg.height = BH;
+  const g = bg.getContext("2d");
+  const gr = g.createLinearGradient(0, 0, 0, BH); gr.addColorStop(0, "#3a2f4a"); gr.addColorStop(1, "#22303c");
+  g.fillStyle = gr; g.fillRect(0, 0, BW, BH);
+  // 뒷벽 벽돌 무늬
+  g.strokeStyle = "rgba(255,255,255,0.04)"; g.lineWidth = 1;
+  for (let y = 0; y < BH; y += 16) { g.beginPath(); g.moveTo(0, y); g.lineTo(BW, y); g.stroke(); for (let x = (y / 16) % 2 ? 0 : 16; x < BW; x += 32) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 16); g.stroke(); } }
+  for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) {
+    const c = L.grid[y][x], px = x * T, py = y * T;
+    if (c === "#" || c === "L" || c === "W" || c === "~") {
+      const v = hash(x, y) * 14 - 7;
+      g.fillStyle = `rgb(${120 + v},${104 + v},${78 + v})`; g.fillRect(px, py, T, T);
+      g.fillStyle = "rgba(255,255,255,0.12)"; g.fillRect(px, py, T, 2); g.fillRect(px, py, 2, T);
+      g.fillStyle = "rgba(0,0,0,0.25)"; g.fillRect(px, py + T - 2, T, 2); g.fillRect(px + T - 2, py, 2, T);
+      if (hash(y, x) < 0.25) { g.fillStyle = "rgba(0,0,0,0.12)"; g.fillRect(px + 6, py + 8, 6, 3); }
+      const above = tileAt(x, y - 1);
+      if (c === "#" && y > 0 && !isSolidChar(above) && hash(x + 7, y) < 0.5) { g.fillStyle = "#6a9a3a"; g.fillRect(px, py, T, 3); }
+    } else if (c === "I") {
+      g.fillStyle = "#bfe9ff"; g.fillRect(px, py, T, T);
+      g.fillStyle = "#e9f8ff"; g.fillRect(px, py, T, 4);
+      g.strokeStyle = "rgba(255,255,255,0.8)"; g.lineWidth = 2; g.beginPath(); g.moveTo(px + 5, py + 16); g.lineTo(px + 11, py + 9); g.stroke();
+      g.fillStyle = "rgba(60,140,200,0.25)"; g.fillRect(px, py + T - 3, T, 3);
+    }
+  }
+}
+const LIQ = { L: ["#ff7b1c", "#ffd23f", "rgba(255,120,30,0.35)"], W: ["#2f8fff", "#a5d8ff", "rgba(47,143,255,0.25)"], "~": ["#4cc54c", "#b2f2bb", "rgba(80,200,80,0.3)"] };
+function drawLiquids(t) {
+  const x0 = Math.max(0, Math.floor(camX / T)), y0 = Math.max(0, Math.floor(camY / T));
+  for (let y = y0; y < Math.min(L.H, y0 + ROWS + 2); y++) for (let x = x0; x < Math.min(L.W, x0 + COLS + 2); x++) {
+    const c = L.grid[y][x]; if (!LIQ[c]) continue;
+    const [base, hi, glow] = LIQ[c], px = x * T, py = y * T;
+    ctx.fillStyle = glow; ctx.fillRect(px - 2, py - 10, T + 4, 10);
+    ctx.fillStyle = base; ctx.beginPath(); ctx.moveTo(px, py + T * 0.75);
+    for (let k = 0; k <= 6; k++) ctx.lineTo(px + k * 4, py + 3 + Math.sin(t * 3 + (px + k * 4) * 0.15) * 2);
+    ctx.lineTo(px + T, py + T * 0.75); ctx.fill();
+    ctx.fillStyle = hi; for (let k = 0; k < 6; k++) ctx.fillRect(px + k * 4, py + 3 + Math.sin(t * 3 + (px + k * 4) * 0.15) * 2, 3, 2);
+    if (c === "~" && hash(x, Math.floor(t * 2)) < 0.15) { ctx.fillStyle = hi; ctx.beginPath(); ctx.arc(px + 12, py - (t * 20 % 10), 2.5, 0, 7); ctx.fill(); }
+    if (c === "L" && hash(x + 3, Math.floor(t * 3)) < 0.1) { ctx.fillStyle = "#ffe066"; ctx.fillRect(px + 10, py - (t * 30 % 12), 3, 3); }
+  }
+}
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function drawMechs(t) {
+  // 문
+  for (const gt of L.gates) {
+    const c = L.chans[gt.ch], px = gt.x * T, py = gt.y * T, k = c.open;
+    if (k >= 1) { ctx.strokeStyle = c.color + "55"; ctx.setLineDash([4, 4]); ctx.strokeRect(px + 6, py + 1, T - 12, T - 2); ctx.setLineDash([]); continue; }
+    const h = T * (1 - k);
+    ctx.fillStyle = "#3b3b48"; ctx.fillRect(px + 4, py, T - 8, h);
+    ctx.fillStyle = c.color; ctx.fillRect(px + 6, py, 4, h); ctx.fillRect(px + 14, py, 4, h);
+    ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(px + 4, py + h - 3, T - 8, 3);
+  }
+  // 발판
+  const groupCount = {};
+  for (const pl of L.plates) {
+    const c = L.chans[pl.ch], px = pl.x * T, py = pl.y * T, pressed = c.t === "group" ? c.latched : c.on;
+    const d = pressed ? 4 : 0;
+    ctx.fillStyle = "#2b2b35"; ctx.fillRect(px + 1, py + T - 4, T - 2, 4);
+    ctx.fillStyle = c.color; roundRect(ctx, px + 3, py + T - 9 + d, T - 6, 6 - d * 0.5, 2); ctx.fill();
+    if (pressed) { ctx.fillStyle = c.color + "44"; ctx.fillRect(px + 2, py + T - 16, T - 4, 8); }
+    if (c.only) { ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.fillText(c.only === "fire" ? "🔥" : "💧", px + T / 2, py + T - 12); }
+    if (c.t === "group") (groupCount[pl.ch] = groupCount[pl.ch] || []).push(pl);
+  }
+  for (const k in groupCount) {
+    const list = groupCount[k], c = L.chans[k], cx = (list[0].x + list[list.length - 1].x + 1) * T / 2, cy = list[0].y * T - 40;
+    const need = Math.max(MIN_PLAYERS, livePlayers().length || lobbyPlayers().length || MIN_PLAYERS);
+    const txt = c.latched ? "✅ 집합 완료!" : `🟣 전원 집합 ${phase === "play" ? c.count : 0}/${need}`;
+    tag(txt, cx, cy - 6 + Math.sin(t * 3) * 2, c.latched ? "rgba(47,158,68,0.9)" : "rgba(112,72,232,0.9)", "#fff");
+  }
+  // 레버
+  for (const lv of L.levers) {
+    const c = L.chans[lv.ch], px = lv.x * T + T / 2, py = lv.y * T + T;
+    const a = c.lever ? 0.6 : -0.6;
+    ctx.strokeStyle = "#ddd"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(px, py - 4); ctx.lineTo(px + Math.sin(a) * 16, py - 4 - Math.cos(a) * 16); ctx.stroke();
+    ctx.fillStyle = c.color; ctx.beginPath(); ctx.arc(px + Math.sin(a) * 16, py - 4 - Math.cos(a) * 16, 4, 0, 7); ctx.fill();
+    ctx.fillStyle = "#555"; roundRect(ctx, px - 9, py - 7, 18, 7, 3); ctx.fill();
+    if (me && !me.dead && ov({ x: me.x, y: me.y, w: PW, h: PH }, { x: lv.x * T, y: lv.y * T, w: T, h: T })) tag("↓ 당기기", px, py - 32, "rgba(0,0,0,0.7)", "#fff");
+  }
+  // 엘리베이터
+  for (const e of L.elev) {
+    const r = e.rect, c = L.chans[e.ch[0]];
+    ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.lineWidth = 2;
+    for (const sx of [r.x + 6, r.x + r.w - 6]) { ctx.beginPath(); ctx.moveTo(sx, (e.y + e.dy) * T); ctx.lineTo(sx, e.y * T + T); ctx.stroke(); }
+    ctx.fillStyle = "#8d99ae"; roundRect(ctx, r.x + 1, r.y + 2, r.w - 2, T - 6, 4); ctx.fill();
+    ctx.fillStyle = "#edf2f4"; ctx.fillRect(r.x + 3, r.y + 3, r.w - 6, 3);
+    ctx.fillStyle = c.color; ctx.fillRect(r.x + 8, r.y + 10, r.w - 16, 4);
+  }
+  // 출구 문
+  for (const d of L.doors) {
+    const px = d.x * T - 6, py = d.y * T - T - 6, w = T + 12, h = 2 * T + 6;
+    const fire = d.el === "fire", col = fire ? "#ff6b2c" : "#2f8fff";
+    const teamIn = phase === "play" ? livePlayers().filter((p) => p.team === d.el) : [];
+    const inCount = teamIn.filter((p) => (p.id === myId ? me && me.ex : others[p.id] && others[p.id].ex)).length;
+    const allIn = teamIn.length > 0 && inCount === teamIn.length;
+    ctx.fillStyle = "#4a3b2a"; roundRect(ctx, px - 3, py - 3, w + 6, h + 3, 10); ctx.fill();
+    ctx.fillStyle = allIn ? "#fff3bf" : "#1a1a22"; roundRect(ctx, px, py, w, h, 8); ctx.fill();
+    if (allIn) { ctx.fillStyle = col + "55"; ctx.beginPath(); ctx.arc(px + w / 2, py + h / 2, 30 + Math.sin(t * 5) * 4, 0, 7); ctx.fill(); }
+    ctx.strokeStyle = col; ctx.lineWidth = 3; roundRect(ctx, px, py, w, h, 8); ctx.stroke();
+    ctx.font = "18px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(fire ? "🔥" : "💧", px + w / 2, py + 14);
+    if (teamIn.length) tag(`${inCount}/${teamIn.length}`, px + w / 2, py - 10, col, "#fff");
+  }
+  // 보석
+  for (const gm of L.gems) {
+    if (gemsTaken.has(gm.i)) continue;
+    const cx = gm.x * T + 12, cy = gm.y * T + 12 + Math.sin(t * 3 + gm.i) * 2, fire = gm.el === "fire";
+    ctx.fillStyle = fire ? "rgba(255,80,80,0.25)" : "rgba(80,160,255,0.25)"; ctx.beginPath(); ctx.arc(cx, cy, 11, 0, 7); ctx.fill();
+    ctx.fillStyle = fire ? "#ff4d4d" : "#339af0";
+    ctx.beginPath(); ctx.moveTo(cx, cy - 8); ctx.lineTo(cx + 7, cy - 2); ctx.lineTo(cx, cy + 8); ctx.lineTo(cx - 7, cy - 2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.beginPath(); ctx.moveTo(cx - 3, cy - 4); ctx.lineTo(cx, cy - 7); ctx.lineTo(cx + 1, cy - 2); ctx.fill();
+    if ((t * 2 + gm.i) % 3 < 0.25) { ctx.fillStyle = "#fff"; ctx.fillRect(cx + 4, cy - 8, 2, 2); }
+  }
+}
+function drawHero(x, y, team, col, f, t, opt = {}) {
+  // x,y = 몸 왼쪽 위 (PW x PH)
+  const cx = x + PW / 2, by = y + PH;
+  const bob = opt.ground ? Math.abs(Math.sin(opt.walk || 0)) * 1.5 : 0;
+  ctx.globalAlpha = opt.alpha == null ? 1 : opt.alpha;
+  ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.beginPath(); ctx.ellipse(cx, by, 8, 2.5, 0, 0, 7); ctx.fill();
+  // 다리
+  const lp = Math.sin(opt.walk || 0) * 3;
+  ctx.fillStyle = "#2b2b35"; ctx.fillRect(cx - 5 + lp * 0.5, by - 6, 4, 6); ctx.fillRect(cx + 1 - lp * 0.5, by - 6, 4, 6);
+  // 몸
+  ctx.fillStyle = team === "fire" ? "#8a2b0e" : "#0d3d73"; roundRect(ctx, cx - 6, by - 13 - bob, 12, 9, 3); ctx.fill();
+  // 머리 (불꽃 / 물방울)
+  const hy = by - 16 - bob;
+  if (team === "fire") {
+    const fl = Math.sin(t * 12 + x) * 2;
+    ctx.fillStyle = "rgba(255,140,40,0.25)"; ctx.beginPath(); ctx.arc(cx, hy - 2, 13, 0, 7); ctx.fill();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(cx - 9, hy + 2); ctx.quadraticCurveTo(cx - 11, hy - 10, cx - 4 - f * 2, hy - 18 + fl); ctx.quadraticCurveTo(cx - 1, hy - 11, cx + 2 - f * 3, hy - 21 - fl); ctx.quadraticCurveTo(cx + 6, hy - 12, cx + 8 - f * 2, hy - 16 + fl); ctx.quadraticCurveTo(cx + 12, hy - 6, cx + 9, hy + 2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#ffe066"; ctx.beginPath(); ctx.ellipse(cx, hy - 3, 6, 6, 0, 0, 7); ctx.fill();
+  } else {
+    const wv = Math.sin(t * 6 + x) * 1;
+    ctx.fillStyle = "rgba(80,170,255,0.2)"; ctx.beginPath(); ctx.arc(cx, hy - 2, 13, 0, 7); ctx.fill();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(cx - f * 3, hy - 20 + wv); ctx.quadraticCurveTo(cx + 12, hy - 6, cx + 8, hy + 1); ctx.quadraticCurveTo(cx, hy + 6, cx - 8, hy + 1); ctx.quadraticCurveTo(cx - 12, hy - 6, cx - f * 3, hy - 20 + wv); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.beginPath(); ctx.ellipse(cx - 4, hy - 7, 2, 3.5, -0.4, 0, 7); ctx.fill();
+  }
+  // 눈
+  const ex = cx + f * 2;
+  for (const s of [-3, 3]) { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.ellipse(ex + s, hy - 3, 2.6, 3.2, 0, 0, 7); ctx.fill(); ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(ex + s + f, hy - 2.5, 1.4, 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+}
+function tag(text, x, y, bg, fg) {
+  ctx.font = "bold 12px sans-serif"; const tw = ctx.measureText(text).width + 10;
+  ctx.fillStyle = bg; roundRect(ctx, x - tw / 2, y - 9, tw, 17, 6); ctx.fill();
+  ctx.fillStyle = fg; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(text, x, y);
+}
+function drawPlayers(t) {
+  const list = [];
+  for (const id in others) { const o = others[id]; if (o.dead || !present[id]) continue; list.push({ id, x: o.rx, y: o.ry, team: o.team, col: o.col, f: o.f, name: o.name, ground: o.g, walk: (o.rx / 6), mine: false }); }
+  if (me && !me.dead && phase !== "lobby") list.push({ id: myId, x: me.x, y: me.y, team: me.team, col: me.col, f: me.f, name: myName, ground: me.ground, walk: me.walk, mine: true });
+  for (const p of list) {
+    drawHero(p.x, p.y, p.team, p.col, p.f, t, { ground: p.ground, walk: p.walk });
+    tag((p.mine ? "▼ " : "") + p.name, p.x + PW / 2, p.y - 30, p.mine ? "#ffd43b" : "rgba(255,255,255,0.88)", "#333");
+    const em = emos[p.id];
+    if (em && performance.now() - em.at < 2200) { const k = (performance.now() - em.at) / 2200; ctx.globalAlpha = k > 0.8 ? (1 - k) * 5 : 1; tag(em.e, p.x + PW / 2, p.y - 52 - k * 6, "#fff", "#222"); ctx.globalAlpha = 1; }
+  }
+}
+function drawLobbyHeroes(t) {
+  const ids = lobbyPlayers(); if (!L.spawns.length) return;
+  ids.forEach((id, i) => {
+    const s = L.spawns[i % L.spawns.length], tm = present[id].tm;
+    const team = tm === "water" ? "water" : tm === "fire" ? "fire" : i % 2 ? "water" : "fire";
+    const x = s.x * T + 4 + (i >= L.spawns.length ? 10 : 0), y = s.y * T + T - PH - Math.abs(Math.sin(t * 3 + i)) * 6;
+    drawHero(x, y, team, team === "fire" ? FIRE_COLS[i % 3] : WATER_COLS[i % 3], 1, t, {});
+    tag(present[id].name, x + PW / 2, y - 30 - (i % 2) * 18, id === myId ? "#ffd43b" : "rgba(255,255,255,0.88)", "#333");
+  });
+}
+// 카메라: 나를 따라다녀요 (맵이 화면보다 크면)
+function camTarget() {
+  if (phase === "lobby") { const s = L.spawns[0] || { x: 0, y: 0 }; return { x: s.x * T, y: s.y * T }; }
+  if (me) return { x: me.x + PW / 2, y: me.y };
+  const p = parts.find((q) => others[q.id] && present[q.id]);
+  return p ? { x: others[p.id].rx, y: others[p.id].ry } : { x: 0, y: 0 };
+}
+function updateCam() {
+  const tg = camTarget(), mx = Math.max(0, L.W * T - CW), my = Math.max(0, L.H * T - CH);
+  const tx = Math.max(0, Math.min(mx, tg.x - CW / 2)), ty = Math.max(0, Math.min(my, tg.y - CH * 0.55));
+  if (camSnap) { camX = tx; camY = ty; camSnap = false; } else { camX = lerp(camX, tx, 0.12); camY = lerp(camY, ty, 0.12); }
+}
+// 화면 밖에 있는 친구는 가장자리에 화살표로 알려 줘요
+function drawArrows() {
+  if (phase !== "play") return;
+  for (const id in others) {
+    const o = others[id]; if (!present[id] || o.dead) continue;
+    const sx = o.rx + PW / 2 - camX, sy = o.ry + PH / 2 - camY;
+    if (sx > -4 && sx < CW + 4 && sy > -4 && sy < CH + 4) continue;
+    const ax = Math.max(26, Math.min(CW - 26, sx)), ay = Math.max(70, Math.min(CH - 26, sy));
+    const ang = Math.atan2(sy - ay, sx - ax), col = o.team === "fire" ? "#ff8a3d" : "#4dabf7";
+    const dist = me ? Math.round(Math.hypot(o.rx - me.x, o.ry - me.y) / T) : "";
+    ctx.save(); ctx.translate(ax, ay); ctx.rotate(ang);
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-6, -11); ctx.lineTo(-6, 11); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    tag(`${o.team === "fire" ? "🔥" : "💧"}${o.name}${dist !== "" ? " " + dist + "칸" : ""}`, Math.max(60, Math.min(CW - 60, ax - Math.cos(ang) * 30)), ay - Math.sin(ang) * 22, col, "#fff");
+  }
+}
+function draw() {
+  const t = performance.now() / 1000;
+  ctx.clearRect(0, 0, CW, CH);
+  if (!L) return;
+  updateCam();
+  const cx = Math.round(camX), cy = Math.round(camY);
+  ctx.fillStyle = "#1d1a24"; ctx.fillRect(0, 0, CW, CH);
+  ctx.save(); ctx.translate(-cx, -cy);
+  ctx.drawImage(bg, cx, cy, Math.min(CW, bg.width - cx), Math.min(CH, bg.height - cy), cx, cy, Math.min(CW, bg.width - cx), Math.min(CH, bg.height - cy));
+  drawLiquids(t);
+  drawMechs(t);
+  if (phase === "lobby") drawLobbyHeroes(t); else drawPlayers(t);
+  for (const p of particles) { ctx.globalAlpha = Math.min(1, p.life / 20); ctx.fillStyle = p.color; ctx.fillRect(p.x - 2, p.y - 2, 4, 4); }
+  ctx.globalAlpha = 1;
+  for (const pg of pings) {
+    const k = (performance.now() - pg.at) / 2500; if (k > 1) continue;
+    const col = pg.el === "fire" ? "#ff8a3d" : pg.el === "water" ? "#4dabf7" : "#ffd43b";
+    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.globalAlpha = 1 - k;
+    for (const off of [0, 0.35]) { const kk = (k * 2 + off) % 1; ctx.beginPath(); ctx.arc(pg.x, pg.y, 6 + kk * 22, 0, 7); ctx.stroke(); }
+    ctx.globalAlpha = 1; tag("📍 " + pg.name, pg.x, pg.y - 30, col, "#fff");
+  }
+  pings = pings.filter((p) => performance.now() - p.at < 2500);
+  ctx.restore();
+  drawArrows();
+  drawHUD(t);
+}
+function drawHUD(t) {
+  ctx.textBaseline = "middle";
+  const panel = (x, y, w, h) => { ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(ctx, x, y, w, h, 8); ctx.fill(); };
+  if (phase === "lobby") {
+    panel(CW / 2 - 260, CH / 2 - 60, 520, 110);
+    ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.font = "bold 26px sans-serif"; ctx.fillText(L.def.name, CW / 2, CH / 2 - 30);
+    ctx.font = "14px sans-serif"; ctx.fillStyle = "#ffe8cc"; wrapText(L.def.tip, CW / 2, CH / 2 + 2, 480, 20);
+    ctx.font = "bold 14px sans-serif"; ctx.fillStyle = "#b2f2bb"; ctx.fillText(isHost() ? "친구들을 모으고 ▶ 탈출 시작!" : "방장이 시작하길 기다리는 중…", CW / 2, CH / 2 + 38);
+    return;
+  }
+  const el = phase === "play" ? elapsed() : clearAt;
+  const fg = L.gems.filter((g) => g.el === "fire"), wg = L.gems.filter((g) => g.el === "water");
+  panel(8, 30, 300, 26);
+  ctx.textAlign = "left"; ctx.font = "bold 14px sans-serif"; ctx.fillStyle = "#fff";
+  ctx.fillText(`⏱ ${fmtTime(el)}   🔴 ${fg.filter((g) => gemsTaken.has(g.i)).length}/${fg.length}   🔵 ${wg.filter((g) => gemsTaken.has(g.i)).length}/${wg.length}`, 18, 43);
+  ctx.font = "12px sans-serif"; ctx.fillStyle = "#ced4da"; ctx.textAlign = "right"; ctx.fillText(L.def.name, CW - 12, 43);
+  ctx.textAlign = "center";
+  feed.forEach((f, i) => {
+    const age = (performance.now() - f.at) / 4000; if (age > 1) return;
+    ctx.globalAlpha = age > 0.8 ? (1 - age) * 5 : 1;
+    ctx.font = "bold 14px sans-serif"; const tw = ctx.measureText(f.text).width + 24;
+    panel(CW / 2 - tw / 2, 64 + i * 28, tw, 24); ctx.fillStyle = "#fff"; ctx.fillText(f.text, CW / 2, 76 + i * 28);
+    ctx.globalAlpha = 1;
+  });
+  feed = feed.filter((f) => performance.now() - f.at < 4000);
+  if (countingDown()) {
+    const n = Math.ceil(COUNTDOWN - (performance.now() - startAt) / 1000);
+    panel(CW / 2 - 250, CH / 2 - 80, 500, 150);
+    ctx.font = "bold 70px sans-serif"; ctx.fillStyle = "#ffd43b"; ctx.fillText(n, CW / 2, CH / 2 - 30);
+    ctx.font = "bold 16px sans-serif"; ctx.fillStyle = "#fff";
+    ctx.fillText(me ? `나는 ${me.team === "fire" ? "🔥 불 팀 — 용암 OK, 물 위험!" : "💧 물 팀 — 물 OK, 용암 위험!"}` : "👀 관전 중", CW / 2, CH / 2 + 22);
+    ctx.font = "13px sans-serif"; ctx.fillStyle = "#ffe8cc"; wrapText(L.def.tip, CW / 2, CH / 2 + 48, 460, 18);
+  } else if (phase === "play" && elapsed() < 1) { ctx.font = "bold 60px sans-serif"; ctx.fillStyle = "#69db7c"; ctx.fillText("출발!", CW / 2, CH / 2 - 30); }
+  if (me && me.dead && phase === "play") { panel(CW / 2 - 130, CH - 60, 260, 34); ctx.font = "bold 15px sans-serif"; ctx.fillStyle = "#fff"; ctx.fillText("💀 앗! 곧 체크포인트에서 다시 시작", CW / 2, CH - 43); }
+  if (me && me.ex && !me.dead && phase === "play") { panel(CW / 2 - 150, CH - 60, 300, 34); ctx.font = "bold 15px sans-serif"; ctx.fillStyle = "#b2f2bb"; ctx.fillText("🚪 도착! 친구들을 기다리는 중…", CW / 2, CH - 43); }
+}
+function wrapText(text, x, y, maxW, lh) {
+  const words = text.split(" "); let line = "", yy = y;
+  for (const w of words) { const test = line ? line + " " + w : w; if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, yy); line = w; yy += lh; } else line = test; }
+  if (line) ctx.fillText(line, x, yy);
+}
+
+// ===================== 루프 (1초에 60번 고정 계산) =====================
+let acc = 0, last = performance.now();
+function frame(now) {
+  acc += Math.min(100, now - last); last = now;
+  try { while (acc >= 1000 / 60) { step(); acc -= 1000 / 60; } draw(); } catch (e) { console.error(e); }
+  requestAnimationFrame(frame);
+}
+loadLevel(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
